@@ -45,7 +45,8 @@
   .subtitle{ color:var(--muted); font-size:14px; margin:0 0 24px; }
 
   .today-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:30px; }
-  .stat-card{ border:1px solid var(--line); border-radius:12px; padding:16px 18px; background:var(--paper); }
+  .stat-card{ border:1px solid var(--line); border-radius:12px; padding:16px 18px; background:var(--paper); cursor:pointer; transition:transform .12s ease, box-shadow .12s ease; }
+  .stat-card:hover{ transform:translateY(-2px); box-shadow:0 4px 10px rgba(34,38,43,0.08); }
   .stat-card .n{ font-family:'Fraunces',serif; font-size:26px; font-weight:600; }
   .stat-card .l{ font-size:12.5px; color:var(--muted); margin-top:2px; }
   .stat-card[data-cat="cours"]{ border-left:4px solid var(--cours); }
@@ -109,6 +110,35 @@
   .course-time{ font-weight:600; font-size:13px; color:var(--cours); flex-shrink:0; width:82px; }
   .course-body{ flex:1; min-width:0; }
   .course-title{ font-weight:600; font-size:14px; }
+
+  /* clickable rows */
+  .clickable{ cursor:pointer; transition:border-color .12s ease, transform .12s ease; }
+  .clickable:hover{ border-color:var(--line-strong); transform:translateX(2px); }
+
+  /* detail modal */
+  .detail-overlay{
+    position:fixed; inset:0; background:rgba(34,38,43,0.45);
+    display:flex; align-items:center; justify-content:center;
+    padding:24px; z-index:50;
+  }
+  .detail-overlay.hidden{ display:none; }
+  .detail-card{
+    background:var(--paper-2); border-radius:16px; border:1px solid var(--line-strong);
+    max-width:480px; width:100%; max-height:85vh; overflow-y:auto;
+    padding:28px 30px; box-shadow:0 12px 32px rgba(0,0,0,0.25);
+  }
+  .detail-close{
+    float:right; background:none; border:none; font-size:20px; cursor:pointer;
+    color:var(--muted); line-height:1; padding:0 0 0 12px;
+  }
+  .detail-close:hover{ color:var(--ink); }
+  .detail-eyebrow{ font-size:11.5px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin-bottom:6px; }
+  .detail-title{ font-family:'Fraunces',serif; font-weight:600; font-size:22px; margin:0 0 18px; padding-right:20px; }
+  .detail-row{ display:flex; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); font-size:14px; }
+  .detail-row:last-child{ border-bottom:none; }
+  .detail-row .k{ color:var(--muted); width:110px; flex-shrink:0; font-weight:500; }
+  .detail-row .v{ flex:1; }
+  .detail-exo{ font-size:13.5px; line-height:1.9; margin-top:6px; }
   .course-meta{ font-size:12.5px; color:var(--muted); margin-top:2px; }
 </style>
 </head>
@@ -123,6 +153,10 @@
     <button class="tab" data-cat="sport"><span class="dot"></span>Sport<span class="count" id="count-sport"></span></button>
   </div>
   <div class="page" id="page"></div>
+</div>
+
+<div class="detail-overlay hidden" id="detail-overlay" onclick="closeDetailBg(event)">
+  <div class="detail-card" onclick="event.stopPropagation()" id="detail-card"></div>
 </div>
 
 <script>
@@ -238,17 +272,33 @@ async function resetCurrent(){
 /* ---------- AUJOURD'HUI ---------- */
 function renderToday(page){
   const today = todayStr();
-  const coursAujourdhui = DATA.cours.filter(i=>i.date===today).sort((a,b)=>(a.heureDebut||"").localeCompare(b.heureDebut||""));
-  const openRev = DATA.revisions.filter(i=>!i.done).length;
-  const openAlt = DATA.alternance.filter(i=>!i.done).length;
-  const openSport = DATA.sport.filter(i=>!i.done).length;
+  const now = new Date();
+  const todayIdxMon0 = (now.getDay()+6)%7; // 0=lundi
+  const todayAbbrev = JOURS[todayIdxMon0];        // "Lun", "Mar", ...
+  const todayLong = JOURS_LONG[todayIdxMon0];      // "lundi", "mardi", ...
 
-  let html = `<h1>Aujourd'hui</h1><p class="subtitle">${new Date().toLocaleDateString("fr-FR",{weekday:"long", day:"numeric", month:"long"})}</p>`;
+  const coursAujourdhui = DATA.cours.filter(i=>i.date===today).sort((a,b)=>(a.heureDebut||"").localeCompare(b.heureDebut||""));
+
+  // Révisions : séance du programme hebdomadaire prévue aujourd'hui + échéances dues/en retard
+  const monday = mondayOf(now);
+  const planToday = weekPlanFor(monday).find(s => s.jour.toLowerCase() === todayLong);
+  const revDue = DATA.revisions.filter(i=>!i.done && i.echeance && i.echeance<=today);
+  const revCount = (planToday? 1:0) + revDue.length;
+
+  // Alternance : statut de la semaine en cours
+  const mondayStr = monday.toISOString().slice(0,10);
+  const altThisWeek = DATA.alternance.find(i=>i.date===mondayStr);
+  const altCount = altThisWeek ? 1 : 0;
+
+  // Sport : séance(s) prévue(s) aujourd'hui
+  const sportAujourdhui = DATA.sport.filter(i=>i.jour===todayAbbrev);
+
+  let html = `<h1>Aujourd'hui</h1><p class="subtitle">${now.toLocaleDateString("fr-FR",{weekday:"long", day:"numeric", month:"long"})}</p>`;
   html += `<div class="today-grid">
-    <div class="stat-card" data-cat="cours"><div class="n">${coursAujourdhui.length}</div><div class="l">cours aujourd'hui</div></div>
-    <div class="stat-card" data-cat="revisions"><div class="n">${openRev}</div><div class="l">révisions à faire</div></div>
-    <div class="stat-card" data-cat="alternance"><div class="n">${openAlt}</div><div class="l">tâches alternance</div></div>
-    <div class="stat-card" data-cat="sport"><div class="n">${openSport}</div><div class="l">séances de sport</div></div>
+    <div class="stat-card" data-cat="cours" onclick="switchTab('cours')"><div class="n">${coursAujourdhui.length}</div><div class="l">cours aujourd'hui</div></div>
+    <div class="stat-card" data-cat="revisions" onclick="switchTab('revisions')"><div class="n">${revCount}</div><div class="l">révisions à faire</div></div>
+    <div class="stat-card" data-cat="alternance" onclick="switchTab('alternance')"><div class="n">${altCount}</div><div class="l">${altThisWeek? escapeHtml(altThisWeek.type) : "alternance"}</div></div>
+    <div class="stat-card" data-cat="sport" onclick="switchTab('sport')"><div class="n">${sportAujourdhui.length}</div><div class="l">séance(s) de sport</div></div>
   </div>`;
 
   html += `<div class="section-label">Cours du jour</div><div class="list">`;
@@ -256,22 +306,23 @@ function renderToday(page){
     html += `<div class="empty">Aucun cours aujourd'hui.</div>`;
   }else{
     coursAujourdhui.forEach(c=>{
-      html += `<div class="agenda-item"><span class="tag cours">${c.heureDebut}</span><span class="txt">${escapeHtml(c.matiere)}</span><span class="meta">${escapeHtml(c.salle||"")}</span></div>`;
+      html += `<div class="agenda-item" style="cursor:pointer" onclick="switchTab('cours')"><span class="tag cours">${c.heureDebut}</span><span class="txt">${escapeHtml(c.matiere)}</span><span class="meta">${escapeHtml(c.salle||"")}</span></div>`;
     });
   }
   html += `</div>`;
 
   const all = [];
-  DATA.revisions.forEach(i=>!i.done && all.push({cat:"revisions", label:"Révision", title:i.matiere, meta:i.echeance? "à rendre le "+i.echeance : ""}));
-  DATA.alternance.forEach(i=>!i.done && all.push({cat:"alternance", label:"Alternance", title:i.titre||i.type, meta:i.date||""}));
-  DATA.sport.forEach(i=>!i.done && all.push({cat:"sport", label:"Sport", title:i.activite, meta:`${i.jour} ${i.heure||""}`}));
+  if(planToday) all.push({cat:"revisions", label:"Révision", title:planToday.matiere, meta:planToday.heure});
+  revDue.forEach(i=> all.push({cat:"revisions", label:"Révision", title:i.matiere, meta:i.echeance? "à rendre le "+i.echeance : ""}));
+  if(altThisWeek) all.push({cat:"alternance", label:"Alternance", title:altThisWeek.titre||altThisWeek.type, meta:""});
+  sportAujourdhui.forEach(i=> all.push({cat:"sport", label:"Sport", title:i.activite, meta:i.heure||""}));
 
-  html += `<div class="section-label">À suivre</div><div class="list">`;
+  html += `<div class="section-label">À faire aujourd'hui</div><div class="list">`;
   if(all.length===0){
-    html += `<div class="empty">Rien d'autre en attente.</div>`;
+    html += `<div class="empty">Rien d'autre prévu aujourd'hui.</div>`;
   }else{
     all.forEach(a=>{
-      html += `<div class="agenda-item"><span class="tag ${a.cat}">${a.label}</span><span class="txt">${escapeHtml(a.title||"(sans titre)")}</span><span class="meta">${escapeHtml(a.meta)}</span></div>`;
+      html += `<div class="agenda-item" style="cursor:pointer" onclick="switchTab('${a.cat}')"><span class="tag ${a.cat}">${a.label}</span><span class="txt">${escapeHtml(a.title||"(sans titre)")}</span><span class="meta">${escapeHtml(a.meta)}</span></div>`;
     });
   }
   html += `</div>`;
@@ -352,13 +403,13 @@ function renderCoursList(){
 
 function courseCardHtml(c){
   const metaParts = [c.salle, c.enseignant].filter(Boolean);
-  return `<div class="course-card">
+  return `<div class="course-card clickable" onclick="openCoursDetail('${c.id}')">
     <div class="course-time">${c.heureDebut||""}${c.heureFin? "–"+c.heureFin:""}</div>
     <div class="course-body">
       <div class="course-title">${escapeHtml(c.matiere||c.type||"")}</div>
       <div class="course-meta">${escapeHtml(metaParts.join(" · "))}</div>
     </div>
-    <button class="del" onclick="deleteItem('cours','${c.id}')" aria-label="Supprimer">✕</button>
+    <button class="del" onclick="event.stopPropagation(); deleteItem('cours','${c.id}')" aria-label="Supprimer">✕</button>
   </div>`;
 }
 
@@ -612,14 +663,15 @@ async function addSport(){
 
 /* ---------- shared item template + actions ---------- */
 function itemHtml(item, cat, meta, title, extra){
-  return `<div class="item ${item.done?"done":""}">
-    <button class="check" onclick="toggleItem('${cat}','${item.id}')">${item.done? "✓":""}</button>
+  const openFn = cat==="revisions" ? "openRevisionDetail" : cat==="alternance" ? "openAlternanceDetail" : "openSportDetail";
+  return `<div class="item clickable ${item.done?"done":""}" onclick="${openFn}('${item.id}')">
+    <button class="check" onclick="event.stopPropagation(); toggleItem('${cat}','${item.id}')">${item.done? "✓":""}</button>
     <div class="item-body">
       <div class="item-title">${escapeHtml(title||"(sans titre)")}</div>
       <div class="item-meta">${escapeHtml(meta||"")}</div>
     </div>
     ${extra||""}
-    <button class="del" onclick="deleteItem('${cat}','${item.id}')" aria-label="Supprimer">✕</button>
+    <button class="del" onclick="event.stopPropagation(); deleteItem('${cat}','${item.id}')" aria-label="Supprimer">✕</button>
   </div>`;
 }
 async function toggleItem(cat, id){
@@ -633,6 +685,88 @@ async function deleteItem(cat, id){
   DATA[cat] = DATA[cat].filter(i=>i.id!==id);
   await saveCat(cat);
   render();
+}
+
+/* ---------- DÉTAIL (grande section au clic) ---------- */
+function closeDetail(){
+  document.getElementById("detail-overlay").classList.add("hidden");
+}
+function closeDetailBg(e){
+  if(e.target.id === "detail-overlay") closeDetail();
+}
+function openDetailCard(eyebrow, title, rows, extraHtml){
+  const rowsHtml = rows.filter(r=>r[1]).map(([k,v])=>`<div class="detail-row"><div class="k">${escapeHtml(k)}</div><div class="v">${v}</div></div>`).join("");
+  document.getElementById("detail-card").innerHTML = `
+    <button class="detail-close" onclick="closeDetail()">✕</button>
+    <div class="detail-eyebrow">${escapeHtml(eyebrow)}</div>
+    <div class="detail-title">${escapeHtml(title)}</div>
+    <div>${rowsHtml}</div>
+    ${extraHtml||""}
+  `;
+  document.getElementById("detail-overlay").classList.remove("hidden");
+}
+
+function openCoursDetail(id){
+  const c = DATA.cours.find(i=>i.id===id);
+  if(!c) return;
+  const d = new Date(c.date+"T00:00:00");
+  const dateStr = d.toLocaleDateString("fr-FR",{weekday:"long", day:"numeric", month:"long", year:"numeric"});
+  openDetailCard("Cours", c.matiere||c.type||"Cours", [
+    ["Date", escapeHtml(dateStr)],
+    ["Horaire", escapeHtml(`${c.heureDebut||""}${c.heureFin? " – "+c.heureFin:""}`)],
+    ["Salle", escapeHtml(c.salle)],
+    ["Enseignant", escapeHtml(c.enseignant)],
+    ["Groupe(s)", escapeHtml(c.groupes)],
+    ["Type", c.type && c.type!==c.matiere ? escapeHtml(c.type) : ""]
+  ]);
+}
+
+function openRevisionDetail(id){
+  const i = DATA.revisions.find(x=>x.id===id);
+  if(!i) return;
+  openDetailCard("Révision", i.matiere, [
+    ["Échéance", i.echeance? escapeHtml(i.echeance) : ""],
+    ["Priorité", i.priorite? `<span class="prio ${i.priorite}">${escapeHtml(i.priorite)}</span>` : ""],
+    ["Statut", i.done? "Terminé" : "À faire"]
+  ]);
+}
+
+function openRevSlotDetail(jour, heure, matiere){
+  openDetailCard("Programme hebdomadaire", matiere, [
+    ["Jour", escapeHtml(jour)],
+    ["Horaire", escapeHtml(heure)]
+  ], `<div class="detail-exo">
+    <strong>Comment faire cette séance :</strong><br>
+    1. 10 min — relire rapidement le cours, sans surligner.<br>
+    2. 25–40 min — travail actif : exercices sans corrigé, fiche de synthèse, ou explique le concept à voix haute.<br>
+    3. 10 min — auto-test sans support pour repérer ce qui reste flou.
+  </div>`);
+}
+
+function openAlternanceDetail(id){
+  const i = DATA.alternance.find(x=>x.id===id);
+  if(!i) return;
+  let periode = "";
+  if(i.date){
+    const mon = new Date(i.date+"T00:00:00");
+    const sun = new Date(mon); sun.setDate(sun.getDate()+6);
+    periode = `${fmtDateFR(mon)} – ${fmtDateFR(sun)} ${sun.getFullYear()}`;
+  }
+  openDetailCard("Alternance", i.titre||i.type, [
+    ["Type", escapeHtml(i.type)],
+    ["Semaine du", escapeHtml(periode)]
+  ]);
+}
+
+function openSportDetail(id){
+  const i = DATA.sport.find(x=>x.id===id);
+  if(!i) return;
+  const detail = SPORT_DETAIL[i.id];
+  const extra = detail ? `<div class="detail-exo"><strong>Exercices :</strong><br>${detail.exos.map(escapeHtml).join("<br>")}</div>` : "";
+  openDetailCard("Sport", `${i.jour}${i.heure? " · "+i.heure:""}`, [
+    ["Séance", escapeHtml(i.activite)],
+    ["Statut", i.done? "Faite" : "À faire"]
+  ], extra);
 }
 
 loadAll();
