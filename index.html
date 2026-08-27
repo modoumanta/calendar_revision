@@ -175,7 +175,13 @@ let loaded = false;
 let weekOffset = 0;
 
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
-function todayStr(){ return new Date().toISOString().slice(0,10); }
+function todayStr(){ return toLocalISO(new Date()); }
+function toLocalISO(d){
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,"0");
+  const day = String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+}
 
 function mondayOf(dateObj){
   const d = new Date(dateObj);
@@ -279,14 +285,14 @@ function renderToday(page){
 
   const coursAujourdhui = DATA.cours.filter(i=>i.date===today).sort((a,b)=>(a.heureDebut||"").localeCompare(b.heureDebut||""));
 
-  // Révisions : séance du programme hebdomadaire prévue aujourd'hui + échéances dues/en retard
+  // Révisions : programme du jour (basé sur les cours + sport du jour) + échéances dues/en retard
   const monday = mondayOf(now);
-  const planToday = weekPlanFor(monday).find(s => s.jour.toLowerCase() === todayLong);
+  const todayPlan = buildDayPlan(now).filter(b=>b.type!=="note");
   const revDue = DATA.revisions.filter(i=>!i.done && i.echeance && i.echeance<=today);
-  const revCount = (planToday? 1:0) + revDue.length;
+  const revCount = todayPlan.filter(b=>b.type!=="repos" && b.type!=="sport").length + revDue.length;
 
   // Alternance : statut de la semaine en cours
-  const mondayStr = monday.toISOString().slice(0,10);
+  const mondayStr = toLocalISO(monday);
   const altThisWeek = DATA.alternance.find(i=>i.date===mondayStr);
   const altCount = altThisWeek ? 1 : 0;
 
@@ -301,31 +307,52 @@ function renderToday(page){
     <div class="stat-card" data-cat="sport" onclick="switchTab('sport')"><div class="n">${sportAujourdhui.length}</div><div class="l">séance(s) de sport</div></div>
   </div>`;
 
+  // --- Cours du jour ---
   html += `<div class="section-label">Cours du jour</div><div class="list">`;
   if(coursAujourdhui.length===0){
     html += `<div class="empty">Aucun cours aujourd'hui.</div>`;
   }else{
     coursAujourdhui.forEach(c=>{
-      html += `<div class="agenda-item" style="cursor:pointer" onclick="switchTab('cours')"><span class="tag cours">${c.heureDebut}</span><span class="txt">${escapeHtml(c.matiere)}</span><span class="meta">${escapeHtml(c.salle||"")}</span></div>`;
+      html += `<div class="agenda-item clickable" onclick="openCoursDetail('${c.id}')"><span class="tag cours">${c.heureDebut}</span><span class="txt">${escapeHtml(c.matiere)}</span><span class="meta">${escapeHtml(c.salle||"")}</span></div>`;
     });
   }
   html += `</div>`;
 
-  const all = [];
-  if(planToday) all.push({cat:"revisions", label:"Révision", title:planToday.matiere, meta:planToday.heure});
-  revDue.forEach(i=> all.push({cat:"revisions", label:"Révision", title:i.matiere, meta:i.echeance? "à rendre le "+i.echeance : ""}));
-  if(altThisWeek) all.push({cat:"alternance", label:"Alternance", title:altThisWeek.titre||altThisWeek.type, meta:""});
-  sportAujourdhui.forEach(i=> all.push({cat:"sport", label:"Sport", title:i.activite, meta:i.heure||""}));
-
-  html += `<div class="section-label">À faire aujourd'hui</div><div class="list">`;
-  if(all.length===0){
-    html += `<div class="empty">Rien d'autre prévu aujourd'hui.</div>`;
+  // --- Révisions du jour ---
+  html += `<div class="section-label">Révisions du jour</div><div class="list">`;
+  const revBlocks = todayPlan.filter(b=>b.type!=="repos" && b.type!=="sport");
+  if(revBlocks.length===0 && revDue.length===0){
+    html += `<div class="empty">Rien à réviser aujourd'hui.</div>`;
   }else{
-    all.forEach(a=>{
-      html += `<div class="agenda-item" style="cursor:pointer" onclick="switchTab('${a.cat}')"><span class="tag ${a.cat}">${a.label}</span><span class="txt">${escapeHtml(a.title||"(sans titre)")}</span><span class="meta">${escapeHtml(a.meta)}</span></div>`;
+    revBlocks.forEach(b=>{
+      html += `<div class="agenda-item clickable" onclick="switchTab('revisions')"><span class="tag revisions">${b.heure}</span><span class="txt">${escapeHtml(b.titre)}</span><span class="meta"></span></div>`;
+    });
+    revDue.forEach(i=>{
+      html += `<div class="agenda-item clickable" onclick="openRevisionDetail('${i.id}')"><span class="tag revisions">Échéance</span><span class="txt">${escapeHtml(i.matiere)}</span><span class="meta">${i.echeance? "à rendre le "+escapeHtml(i.echeance):""}</span></div>`;
     });
   }
   html += `</div>`;
+
+  // --- Alternance ---
+  html += `<div class="section-label">Alternance cette semaine</div><div class="list">`;
+  if(!altThisWeek){
+    html += `<div class="empty">Pas d'information pour cette semaine.</div>`;
+  }else{
+    html += `<div class="agenda-item clickable" onclick="openAlternanceDetail('${altThisWeek.id}')"><span class="tag alternance">${escapeHtml(altThisWeek.type)}</span><span class="txt">${escapeHtml(altThisWeek.titre||"")}</span><span class="meta"></span></div>`;
+  }
+  html += `</div>`;
+
+  // --- Sport du jour ---
+  html += `<div class="section-label">Sport du jour</div><div class="list">`;
+  if(sportAujourdhui.length===0){
+    html += `<div class="empty">Pas de séance de sport prévue aujourd'hui.</div>`;
+  }else{
+    sportAujourdhui.forEach(i=>{
+      html += `<div class="agenda-item clickable" onclick="openSportDetail('${i.id}')"><span class="tag sport">${escapeHtml(i.heure||"")}</span><span class="txt">${escapeHtml(i.activite)}</span><span class="meta"></span></div>`;
+    });
+  }
+  html += `</div>`;
+
   page.innerHTML = html;
 }
 
@@ -389,7 +416,7 @@ function renderCoursList(){
   let html = "";
   let any = false;
   days.forEach((d, idx)=>{
-    const dStr = d.toISOString().slice(0,10);
+    const dStr = toLocalISO(d);
     const dayCourses = DATA.cours.filter(c=>c.date===dStr).sort((a,b)=>(a.heureDebut||"").localeCompare(b.heureDebut||""));
     if(dayCourses.length===0) return;
     any = true;
@@ -429,7 +456,8 @@ async function addCours(){
 
 /* ---------- REVISIONS ---------- */
 
-// Matières par semestre, classées par volume horaire dans l'emploi du temps importé
+// Matières à ignorer dans les rotations de secours (pas de vrai cours ce jour-là)
+const EXCLUDE_MATIERE = ["Rentrées","Human Talks","Forum Stages","Rencontre partenariale","Visite entreprise","Spécialisation professionnelle","PIGE - Soutenances","Examens"];
 const SEM1_SUBJECTS = [
   "Bases de données avancées",
   "Analyse fontionnelle pour la modélisation de processus",
@@ -451,31 +479,106 @@ const SEM2_SUBJECTS = [
   "Droit du travail",
   "Droit du numérique"
 ];
-const SEM1_END = new Date("2027-02-02"); // début session d'examens 1
-const REV_SLOTS = [
-  { jour: "Lundi",    heure: "19h00 – 20h00" },
-  { jour: "Mardi",    heure: "19h00 – 20h00" },
-  { jour: "Mercredi",  heure: "19h00 – 20h00" },
-  { jour: "Vendredi", heure: "18h00 – 19h00" },
-  { jour: "Dimanche", heure: "17h00 – 18h30 (bilan de la semaine)" }
-];
+const SEM1_END = new Date("2027-02-02");
 let revWeekOffset = 0;
 
-function weekPlanFor(monday){
-  const subjects = monday < SEM1_END ? SEM1_SUBJECTS : SEM2_SUBJECTS;
-  const weekIndex = Math.floor((monday - new Date("2026-08-31")) / (7*24*3600*1000));
-  return REV_SLOTS.map((slot, i) => ({
-    ...slot,
-    matiere: subjects[(weekIndex + i) % subjects.length]
-  }));
+function addMinutes(hhmm, minutes){
+  const [h,m] = hhmm.split(":").map(Number);
+  const total = h*60 + m + minutes;
+  const nh = Math.floor(((total%1440)+1440)%1440 / 60);
+  const nm = ((total%60)+60)%60;
+  return `${String(nh).padStart(2,"0")}:${String(nm).padStart(2,"0")}`;
+}
+
+function coursesOfDay(dateStr){
+  return DATA.cours
+    .filter(c=>c.date===dateStr && c.matiere && !EXCLUDE_MATIERE.some(k=>c.matiere.includes(k)) && !(c.type||"").includes("PIGE - Tutorat"))
+    .sort((a,b)=>(a.heureDebut||"").localeCompare(b.heureDebut||""));
+}
+function sportOfDay(jourAbbrev){
+  return DATA.sport.find(s=>s.jour===jourAbbrev) || null;
+}
+function fallbackSubject(dateObj){
+  const subjects = dateObj < SEM1_END ? SEM1_SUBJECTS : SEM2_SUBJECTS;
+  const weekIndex = Math.floor((dateObj - new Date("2026-08-31")) / (7*24*3600*1000));
+  return subjects[((weekIndex%subjects.length)+subjects.length)%subjects.length];
+}
+
+function buildDayPlan(dateObj){
+  const dateStr = toLocalISO(dateObj);
+  const jourIdx = (dateObj.getDay()+6)%7;
+  const jourAbbrev = JOURS[jourIdx];
+  const jourLong = JOURS_LONG[jourIdx];
+  const courses = coursesOfDay(dateStr);
+  const subjects = [...new Set(courses.map(c=>c.matiere))];
+  const sport = sportOfDay(jourAbbrev);
+  const lastEnd = courses.length ? courses[courses.length-1].heureFin : null;
+  const blocks = [];
+
+  // Dimanche : bilan de la semaine, pas de logique "après les cours"
+  if(jourLong === "dimanche"){
+    blocks.push({heure:"17h00 – 18h30", titre:"Bilan de la semaine", detail:"Repasser rapidement toutes les matières vues (relecture des fiches, pas de nouvelle matière).", type:"test"});
+    return blocks;
+  }
+
+  if(sport){
+    const sportStart = sport.heure || "18:30";
+    const SPORT_DURATION = 75; // 1h15 : efficace pour une séance full body (échauffement + 6 exercices)
+    const sportEnd = addMinutes(sportStart, SPORT_DURATION);
+    blocks.push({heure:`${sportStart} – ${sportEnd}`, titre:`Sport — ${sport.activite}`, type:"sport"});
+
+    let t = sportEnd;
+    let t2 = addMinutes(t, 15);
+    blocks.push({heure:`${t} – ${t2}`, titre:"Retour à la maison & douche", type:"repos"});
+    t = t2; t2 = addMinutes(t, 45);
+    blocks.push({heure:`${t} – ${t2}`, titre:"Cuisiner & dîner", type:"repos"});
+
+    const revStart = t2;
+    const s0 = subjects[0] || fallbackSubject(dateObj);
+    const s1 = subjects[1] || s0;
+    let r1 = addMinutes(revStart, 45);
+    blocks.push({heure:`${revStart} – ${r1}`, titre:`Revoir ${s0}`, detail:"Relecture du cours + fiche de synthèse, puis reformulation à voix haute.", type:"revoir"});
+    let r2 = addMinutes(r1, 45);
+    blocks.push({heure:`${r1} – ${r2}`, titre: subjects.length>1 ? `Exercices ${s1}` : `Exercices ${s0}`, detail:"Exercices ou TD sans le corrigé.", type:"exercices"});
+    blocks.push({heure:"", titre:"Séance de révision raccourcie (1h30) pour respecter ton repos après le sport", type:"note"});
+    return blocks;
+  }
+
+  const restStart = lastEnd || "18:00";
+  let revStart = addMinutes(restStart, 60);
+  blocks.push({heure:`${restStart} – ${revStart}`, titre:"Pause / repas / repos", type:"repos"});
+
+  const lateStart = parseInt(revStart.split(":")[0],10) >= 21;
+  const nbSlots = lateStart ? 2 : 4;
+
+  const s0 = subjects[0] || fallbackSubject(dateObj);
+  const s1 = subjects[1] || s0;
+  const s2 = subjects[2] || s1;
+  const fullSeq = [
+    {titre:`Revoir ${s0}`, detail:"Relecture active du cours du jour + fiche de synthèse.", type:"revoir"},
+    {titre:`Exercices ${s0}`, detail:"TD/exercices sans le corrigé.", type:"exercices"},
+    {titre: subjects.length>1 ? `Revoir ${s1}` : `Exercices ${s0} (approfondissement)`, detail: subjects.length>1 ? "Relecture + fiche de synthèse." : "Exercices plus avancés ou anciens sujets.", type:"revoir"},
+    {titre:"Auto-test + bilan de la journée", detail:"Quiz ou questions sans support pour repérer ce qui reste flou.", type:"test"}
+  ];
+  const seq = fullSeq.slice(0, nbSlots);
+  let t = revStart;
+  seq.forEach(step=>{
+    const t2 = addMinutes(t,60);
+    blocks.push({heure:`${t} – ${t2}`, ...step});
+    t = t2;
+  });
+  if(lateStart){
+    blocks.push({heure:"", titre:"Journée chargée : séance raccourcie pour préserver le sommeil", type:"note"});
+  }
+  return blocks;
 }
 
 function renderRevisions(page){
   page.innerHTML = `
     <h1 style="color:var(--revisions)">Révisions</h1>
-    <p class="subtitle">Programme hebdomadaire + échéances à venir</p>
+    <p class="subtitle">Programme quotidien basé sur tes vrais cours + échéances à venir</p>
 
-    <div class="section-label">Programme hebdomadaire</div>
+    <div class="section-label">Programme de la semaine</div>
     <div class="week-nav">
       <button onclick="revWeekOffset--; renderRevWeekPlan()">◀</button>
       <span class="week-label" id="rev-week-label"></span>
@@ -483,16 +586,7 @@ function renderRevisions(page){
       <button class="today-btn" onclick="revWeekOffset=0; renderRevWeekPlan()">Cette semaine</button>
     </div>
     <div id="rev-week-content"></div>
-    <p class="item-meta" style="margin:6px 4px 24px;">Rotation automatique parmi les matières du semestre en cours (S7 jusqu'au 02/02/2027, puis S8). Séances 45–90 min, à ajuster selon tes disponibilités réelles.</p>
-    <div class="form-row" style="background:var(--revisions-bg); border-color:var(--revisions);">
-      <div style="font-size:13px; line-height:1.6;">
-        <strong>Comment utiliser une séance :</strong><br>
-        1. <strong>10 min</strong> — relire rapidement le cours/les notes du chapitre visé, sans surligner.<br>
-        2. <strong>25–40 min</strong> — travail actif : refaire les exercices/TD sans le corrigé, créer une fiche de synthèse, ou expliquer le concept à voix haute comme si tu l'enseignais.<br>
-        3. <strong>10 min</strong> — auto-test : quiz ou questions sans support pour vérifier ce qui reste flou, à reprendre à la séance suivante si besoin.<br>
-        Le dimanche, remplace les 3 étapes par un survol des matières vues dans la semaine pour les garder fraîches.
-      </div>
-    </div>
+    <p class="item-meta" style="margin:6px 4px 24px;">Le contenu s'adapte automatiquement : matières réellement vues ce jour-là, décalage après le sport les jours de séance, séance raccourcie si tu finis tard, bilan le dimanche.</p>
 
     <div class="section-label">Échéances</div>
     <div class="form-row">
@@ -518,21 +612,36 @@ function renderRevisions(page){
   }).join("");
 }
 
+const BLOCK_COLOR = { sport:"var(--sport)", repos:"var(--muted)", revoir:"var(--revisions)", exercices:"var(--revisions)", test:"var(--revisions)", note:"var(--muted)" };
+
 function renderRevWeekPlan(){
   const monday = mondayOf(new Date());
   monday.setDate(monday.getDate() + revWeekOffset*7);
   const sunday = new Date(monday); sunday.setDate(sunday.getDate()+6);
   document.getElementById("rev-week-label").textContent = `${fmtDateFR(monday)} – ${fmtDateFR(sunday)}`;
-  const plan = weekPlanFor(monday);
-  document.getElementById("rev-week-content").innerHTML = plan.map(s => `
-    <div class="course-card">
-      <div class="course-time" style="color:var(--revisions)">${s.jour}</div>
-      <div class="course-body">
-        <div class="course-title">${escapeHtml(s.matiere)}</div>
-        <div class="course-meta">${escapeHtml(s.heure)}</div>
-      </div>
-    </div>
-  `).join("");
+
+  let html = "";
+  for(let i=0;i<7;i++){
+    const d = new Date(monday); d.setDate(d.getDate()+i);
+    const blocks = buildDayPlan(d);
+    const isToday = toLocalISO(d) === todayStr();
+    html += `<div class="day-block"><div class="day-heading ${isToday?"today-mark":""}">${JOURS_LONG[i]} ${fmtDateFR(d)}${isToday? " · aujourd'hui":""}</div>`;
+    blocks.forEach(b=>{
+      if(b.type==="note"){
+        html += `<div class="item-meta" style="margin:2px 4px 8px; font-style:italic;">${escapeHtml(b.titre)}</div>`;
+        return;
+      }
+      html += `<div class="course-card">
+        <div class="course-time" style="color:${BLOCK_COLOR[b.type]||"var(--revisions)"}">${escapeHtml(b.heure)}</div>
+        <div class="course-body">
+          <div class="course-title">${escapeHtml(b.titre)}</div>
+          ${b.detail? `<div class="course-meta">${escapeHtml(b.detail)}</div>` : ""}
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+  document.getElementById("rev-week-content").innerHTML = html;
 }
 async function addRevision(){
   const matiere = document.getElementById("r-matiere").value.trim();
@@ -731,16 +840,13 @@ function openRevisionDetail(id){
   ]);
 }
 
-function openRevSlotDetail(jour, heure, matiere){
-  openDetailCard("Programme hebdomadaire", matiere, [
-    ["Jour", escapeHtml(jour)],
-    ["Horaire", escapeHtml(heure)]
-  ], `<div class="detail-exo">
-    <strong>Comment faire cette séance :</strong><br>
-    1. 10 min — relire rapidement le cours, sans surligner.<br>
-    2. 25–40 min — travail actif : exercices sans corrigé, fiche de synthèse, ou explique le concept à voix haute.<br>
-    3. 10 min — auto-test sans support pour repérer ce qui reste flou.
-  </div>`);
+function openRevSlotDetail(){
+  const now = new Date();
+  const plan = buildDayPlan(now).filter(b=>b.type!=="note");
+  const eyebrow = "Programme du jour";
+  const title = JOURS_LONG[(now.getDay()+6)%7];
+  const rows = plan.map(b => [b.heure || "—", `${escapeHtml(b.titre)}${b.detail? " — "+escapeHtml(b.detail):""}`]);
+  openDetailCard(eyebrow, title.charAt(0).toUpperCase()+title.slice(1), rows);
 }
 
 function openAlternanceDetail(id){
