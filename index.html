@@ -40,6 +40,7 @@
   .tab[data-cat="sport"] .dot{ background:var(--sport); }
   .tab[data-cat="fiches"] .dot{ background:#6B4E9E; }
   .tab[data-cat="sources"] .dot{ background:#8A8578; }
+  .tab[data-cat="progression"] .dot{ background:#3D6B4F; }
   .tab.active{ background:var(--paper); transform:translateX(-8px); border-color:var(--line-strong); z-index:2; }
   .count{ margin-left:auto; font-size:12px; color:var(--muted); font-weight:500; }
   .page{ flex:1; background:var(--paper-2); border-left:1px solid var(--line-strong); padding:36px 40px 60px; min-height:100vh; }
@@ -108,6 +109,7 @@
   .day-block{ margin-bottom:18px; }
   .day-heading{ font-family:'Fraunces',serif; font-weight:600; font-size:15.5px; margin-bottom:8px; text-transform:capitalize; }
   .day-heading.today-mark{ color:var(--cours); }
+  .today-highlight{ border:2px solid var(--cours) !important; background:var(--cours-bg) !important; }
   .course-card{ display:flex; gap:12px; padding:12px 14px; background:var(--paper); border:1px solid var(--line); border-radius:10px; margin-bottom:7px; }
   .course-time{ font-weight:600; font-size:13px; color:var(--cours); flex-shrink:0; width:82px; }
   .course-body{ flex:1; min-width:0; }
@@ -163,13 +165,29 @@
   .fiche-table{ width:100%; border-collapse:collapse; margin:0 0 16px; font-size:13px; }
   .fiche-table th{ background:#6B4E9E; color:#fff; text-align:left; padding:8px 10px; font-weight:600; }
   .fiche-table td{ border-bottom:1px solid var(--line); padding:8px 10px; vertical-align:top; }
-  .fiche-card{ display:flex; justify-content:space-between; align-items:center; padding:16px 18px; background:var(--paper); border:1px solid var(--line); border-radius:12px; cursor:pointer; margin-bottom:10px; }
+  .fiche-card{ display:flex; align-items:center; gap:12px; padding:16px 18px; background:var(--paper); border:1px solid var(--line); border-radius:12px; margin-bottom:10px; }
   .fiche-card:hover{ border-color:#6B4E9E; }
   .fiche-card .fc-title{ font-weight:600; font-size:15px; }
   .fiche-card .fc-sub{ font-size:12.5px; color:var(--muted); margin-top:2px; }
   .fiche-sources{ background:#F0EAF7; border-radius:8px; padding:12px 16px; margin-bottom:18px; font-size:13px; }
   .fiche-sources ul{ margin:6px 0 0; padding-left:20px; }
   .fiche-sources li{ margin-bottom:3px; }
+  .fiche-check{
+    width:22px; height:22px; border-radius:50%; border:2px solid #6B4E9E; flex-shrink:0;
+    cursor:pointer; background:transparent; display:flex; align-items:center; justify-content:center;
+    font-size:13px; color:#fff; margin-right:2px;
+  }
+  .fiche-check.done{ background:#6B4E9E; }
+  .progress-bar-track{ width:100%; height:10px; background:var(--line); border-radius:6px; overflow:hidden; }
+  .progress-bar-fill{ height:100%; background:#6B4E9E; border-radius:6px; transition:width .2s ease; }
+  .progress-row{ display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+  .progress-row .pr-label{ width:230px; flex-shrink:0; font-size:13.5px; font-weight:600; }
+  .progress-row .pr-pct{ width:48px; flex-shrink:0; text-align:right; font-size:13px; color:var(--muted); }
+  .progress-global{ background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:22px 26px; margin-bottom:26px; text-align:center; }
+  .progress-global .pg-pct{ font-family:'Fraunces',serif; font-size:42px; font-weight:600; color:#6B4E9E; }
+  .progress-global .pg-label{ font-size:13px; color:var(--muted); margin-top:4px; }
+  .progress-day-group{ margin-bottom:14px; }
+  .progress-day-heading{ font-weight:600; font-size:13.5px; margin-bottom:6px; color:#6B4E9E; }
 </style>
 </head>
 <body>
@@ -183,6 +201,7 @@
     <button class="tab" data-cat="sport"><span class="dot"></span>Sport<span class="count" id="count-sport"></span></button>
     <button class="tab" data-cat="fiches"><span class="dot"></span>Fiches de cours</button>
     <button class="tab" data-cat="sources"><span class="dot"></span>Fichiers de cours</button>
+    <button class="tab" data-cat="progression"><span class="dot"></span>Progression</button>
   </div>
   <div class="page" id="page"></div>
 </div>
@@ -250,10 +269,19 @@ const COURS_SOURCE = {
     "Cours-JPA.pdf",
     "Cours-fondamentaux-Spring.pdf",
     "Spring-Test.pdf"
-  ]
+  ],
+  "GL": [],
+  "AFMP": []
 };
 
 const FICHES = {
+  'pc-kotlin': {
+    matiere: "Patrons et composants",
+    chapitre: "Kotlin",
+    resume: "<div class=\"fiche-sources\"><strong>📎 PDF associés à ce chapitre :</strong><ul class=\"fiche-ul\"><li>kotlin.pdf</li></ul></div><h3 class=\"fiche-h1\">1. Kotlin en une phrase</h3><p class=\"fiche-p\">Langage moderne, 100% interopérable avec Java (même bytecode JVM), qui vise à réduire le code répétitif (boilerplate) et à sécuriser certains pièges classiques de Java (null pointer notamment).</p><h3 class=\"fiche-h1\">2. Variables : val vs var</h3><table class=\"fiche-table\"><thead><tr><th>Mot-clé</th><th>Équivalent Java</th><th>Rôle</th></tr></thead><tbody><tr><td>val</td><td>final</td><td>Valeur immuable, assignée une seule fois</td></tr><tr><td>var</td><td>(rien)</td><td>Valeur modifiable</td></tr></tbody></table><p class=\"fiche-note\">Kotlin encourage l'usage de val par défaut — préférer l'immuabilité sauf besoin explicite de mutabilité.</p><h3 class=\"fiche-h1\">3. La Null Safety — l'apport le plus connu de Kotlin</h3><table class=\"fiche-table\"><thead><tr><th>Notation</th><th>Signification</th></tr></thead><tbody><tr><td>String</td><td>Ne peut JAMAIS être null (vérifié à la compilation)</td></tr><tr><td>String?</td><td>Peut être null — type \"nullable\" explicite</td></tr><tr><td>?.</td><td>Appel sécurisé : n'exécute l'appel que si l'objet n'est pas null, sinon renvoie null</td></tr><tr><td>?:</td><td>Opérateur Elvis : fournit une valeur par défaut si l'expression à gauche est null</td></tr><tr><td>!!</td><td>Force le déréférencement (assume que ce n'est pas null) — À ÉVITER, réintroduit le risque de NullPointerException</td></tr></tbody></table><pre class=\"fiche-code\">val nom: String? = null\nval longueur = nom?.length ?: 0   // sécurisé : si nom est null, longueur = 0\nval force = nom!!.length          // dangereux : lève une exception si nom est null</pre><h3 class=\"fiche-h1\">4. Data class</h3><p class=\"fiche-p\">Une data class génère AUTOMATIQUEMENT : equals()/hashCode(), toString(), et une méthode copy() (pour dupliquer un objet en changeant certains attributs) — l'équivalent de ce que Lombok apporte en Java, mais nativement dans le langage.</p><pre class=\"fiche-code\">data class Personne(val nom: String, val age: Int)\nval p1 = Personne(\"Alice\", 30)\nval p2 = p1.copy(age = 31)  // clone avec un seul attribut modifié</pre><h3 class=\"fiche-h1\">5. Les objets (object) — Singleton natif</h3><p class=\"fiche-p\">Le mot-clé object déclare directement un Singleton : les propriétés/fonctions sont STATIC et INDÉPENDANTES (pas besoin du pattern Singleton fait main comme en Java).</p><h3 class=\"fiche-h1\">6. Instructions vues comme des expressions</h3><p class=\"fiche-p\">Différence fondamentale avec Java : if/else, try/catch et when sont des EXPRESSIONS (elles renvoient une valeur directement), pas de simples instructions.</p><table class=\"fiche-table\"><thead><tr><th>Construction Java</th><th>Équivalent Kotlin</th></tr></thead><tbody><tr><td>if classique + opérateur ternaire (A?B:C)</td><td>if/else UNIQUEMENT, vu comme une expression — le ternaire n'existe pas en Kotlin</td></tr><tr><td>switch</td><td>when — bien plus puissant : conditions d'égalité multiples, conditions booléennes, conditions de TYPE (is MaClasse)</td></tr></tbody></table><p class=\"fiche-note\">Piège Kotlin à connaître : le when N'A PAS BESOIN de branche else si Kotlin peut prouver que tous les cas sont couverts (typiquement avec une sealed class, voir plus bas).</p><h3 class=\"fiche-h1\">7. Héritage et interfaces</h3><p class=\"fiche-p\">Une classe est FINALE par défaut (non héritable) — il faut la marquer explicitement open pour permettre l'héritage (inverse de Java où tout est ouvert par défaut sauf final). Une classe fille transmet les propriétés à la classe mère directement via son constructeur.</p><p class=\"fiche-p\">Un attribut de la classe mère ne peut être redéfini (override) dans une classe fille QUE s'il est marqué open dans la classe mère.</p><h3 class=\"fiche-h1\">8. Les sealed class</h3><p class=\"fiche-p\">Crée un ENSEMBLE FERMÉ de sous-classes connues à la compilation : les classes filles ne peuvent PAS être redéfinies en dehors, et la redéfinition ne se fait qu'à UN SEUL niveau de hiérarchie.</p><p class=\"fiche-note\">Intérêt pratique majeur : dans un when portant sur une sealed class, PAS BESOIN de branche else — le compilateur connaît TOUTES les implémentations possibles et vérifie l'exhaustivité.</p><h3 class=\"fiche-h1\">9. Généricité, covariance et contravariance</h3><table class=\"fiche-table\"><thead><tr><th>Notation</th><th>Nom</th><th>Utilisable en</th><th>Autorise</th></tr></thead><tbody><tr><td>&lt;T&gt;</td><td>Générique simple</td><td>Paramètres et retour</td><td>Le type T</td></tr><tr><td>&lt;out T&gt;</td><td>Covariance</td><td>SEULEMENT en retour (pas en paramètre)</td><td>Les SOUS-types de T</td></tr><tr><td>&lt;in T&gt;</td><td>Contravariance</td><td>SEULEMENT en paramètre (pas en retour)</td><td>Les SUR-types (types plus généraux) de T</td></tr></tbody></table><p class=\"fiche-note\">Moyen mnémotechnique : out = \"sort\" (en sortie/retour) ; in = \"entre\" (en paramètre d'entrée).</p><p class=\"fiche-p\">Any équivaut au type Object de Java ; s'écrit MaClasse&lt;Any&gt; ou de façon équivalente MaClasse&lt;*&gt;.</p><h3 class=\"fiche-h1\">10. Boucles fonctionnelles</h3><p class=\"fiche-p\">Kotlin propose les boucles classiques (for, while, do-while) ET des opérateurs fonctionnels façon streams : .map{}, .mapNotNull{}, .filter{}, .reduce{}, .forEach{}, .first{}, .firstOrNull{} — syntaxe proche de TypeScript.</p><pre class=\"fiche-code\">listOf(1,2,3).map { it * 2 }              // \"it\" = paramètre implicite non nommé\nlistOf(1,2,3).map { valeur -> valeur * 2 } // paramètre nommé explicitement\nlistOf(1,2,3).map(MaClasse::maFonction)    // référence de fonction</pre><p class=\"fiche-note\">Dans un lambda, la DERNIÈRE instruction est automatiquement considérée comme la valeur de retour — pas besoin d'écrire return explicitement.</p>",
+    fiche: "<h3 class=\"fiche-h1\">val vs var</h3><p class=\"fiche-p\">val = immuable (final). var = modifiable. Préférer val par défaut.</p><h3 class=\"fiche-h1\">Null Safety — à connaître par cœur</h3><table class=\"fiche-table\"><thead><tr><th>Symbole</th><th>Rôle</th></tr></thead><tbody><tr><td>Type?</td><td>Peut être null</td></tr><tr><td>?.</td><td>Appel sécurisé</td></tr><tr><td>?:</td><td>Valeur par défaut (Elvis)</td></tr><tr><td>!!</td><td>Force (dangereux, à éviter)</td></tr></tbody></table><h3 class=\"fiche-h1\">data class</h3><p class=\"fiche-p\">Génère automatiquement equals/hashCode, toString, copy().</p><h3 class=\"fiche-h1\">object</h3><p class=\"fiche-p\">= Singleton natif du langage.</p><h3 class=\"fiche-h1\">if/when/try = expressions</h3><p class=\"fiche-p\">Renvoient une valeur directement. Pas d'opérateur ternaire en Kotlin (if/else le remplace).</p><h3 class=\"fiche-h1\">Héritage</h3><p class=\"fiche-p\">Classe FERMÉE par défaut → il faut 'open' pour autoriser l'héritage (inverse de Java).</p><h3 class=\"fiche-h1\">sealed class</h3><p class=\"fiche-p\">Ensemble fermé de sous-classes connues → pas de 'else' nécessaire dans un when (exhaustivité vérifiée à la compilation).</p><h3 class=\"fiche-h1\">Covariance / Contravariance — mnémotechnique</h3><table class=\"fiche-table\"><thead><tr><th>Notation</th><th>Sens</th><th>Astuce</th></tr></thead><tbody><tr><td>&lt;out T&gt;</td><td>Covariance, en SORTIE seulement</td><td>out = sort</td></tr><tr><td>&lt;in T&gt;</td><td>Contravariance, en ENTRÉE seulement</td><td>in = entre</td></tr></tbody></table><h3 class=\"fiche-h1\">Boucles fonctionnelles</h3><ul class=\"fiche-ul\"><li>map, filter, reduce, forEach, first/firstOrNull</li><li>it = paramètre implicite</li><li>Dernière instruction du lambda = valeur de retour (pas de 'return')</li></ul>",
+    corriges: "<p class=\"fiche-p\">Pas d annales dediees a Kotlin pour l instant.</p>"
+  },
   'pc-spring': {
     matiere: "Patrons et composants",
     chapitre: "Spring - fondamentaux (IoC, DI, Beans, REST)",
@@ -423,21 +451,21 @@ const FICHES = {
     corriges: "<div class=\"fiche-sources\"><strong>📎 PDF associés :</strong><ul class=\"fiche-ul\"><li>TP_Trigger.pdf (cas Zoo)</li></ul></div><p class=\"fiche-p\">Cas Zoo : LesAnimaux(nomA,...,noCage), LesCages(noCage, fonction, noAllee, nbanim), LesEmployes(nomE, adresse), LesSpecialites(nomE, fonction_cage), LesResponsables(noAllee, nomE), LesGardiens(noCage, nomE).</p><h3 class=\"fiche-h1\">Contrainte 1 — Un seul responsable par allée</h3><p class=\"fiche-p\">Piège de l'énoncé (« il faut bien réfléchir ») : si noAllee est déjà la clé primaire de LesResponsables, cette contrainte est automatiquement garantie par le schéma relationnel lui-même (une clé primaire ne peut pas avoir deux lignes avec la même valeur) — AUCUN trigger n'est nécessaire ici, juste une bonne définition du schéma.</p><h3 class=\"fiche-h1\">Contrainte 2 — Spécialité du responsable compatible avec les cages de l'allée</h3><ul class=\"fiche-ul\"><li>A) Table à surveiller : LesResponsables, événements INSERT et UPDATE.</li><li>B) Condition : aucune cage de l'allée ne doit avoir une fonction absente des spécialités du nouvel employé.</li><li>D) Trigger LIGNE (on a besoin de :new.noAllee et :new.nomE) :</li></ul><pre class=\"fiche-code\">CREATE OR REPLACE TRIGGER trg_respo_specialite\nBEFORE INSERT OR UPDATE ON LesResponsables\nFOR EACH ROW\nDECLARE\n  nb INTEGER;\nBEGIN\n  SELECT COUNT(*) INTO nb\n  FROM LesCages c\n  WHERE c.noAllee = :new.noAllee\n    AND c.fonction NOT IN (\n      SELECT s.fonction_cage FROM LesSpecialites s WHERE s.nomE = :new.nomE\n    );\n  IF nb > 0 THEN\n    RAISE_APPLICATION_ERROR(-20001, 'Aisle Manager Speciality incompatible with Cages');\n  END IF;\nEND;</pre><p class=\"fiche-note\">Pas de problème de table mutante ici : le trigger porte sur LesResponsables mais interroge LesCages et LesSpecialites — deux tables différentes.</p><h3 class=\"fiche-h1\">Contrainte 3 — nbanim toujours synchronisé</h3><ul class=\"fiche-ul\"><li>A) Table à surveiller : LesAnimaux, événements INSERT, UPDATE (de noCage), DELETE.</li><li>B) Condition : aucune — c'est un trigger de calcul, il s'exécute à chaque changement d'affectation.</li><li>D) Trigger LIGNE avec mise à jour relative (+1/-1), comme suggéré par l'énoncé :</li></ul><pre class=\"fiche-code\">CREATE OR REPLACE TRIGGER trg_nbanim\nAFTER INSERT OR UPDATE OF noCage OR DELETE ON LesAnimaux\nFOR EACH ROW\nBEGIN\n  IF INSERTING THEN\n    UPDATE LesCages SET nbanim = nbanim + 1 WHERE noCage = :new.noCage;\n  ELSIF DELETING THEN\n    UPDATE LesCages SET nbanim = nbanim - 1 WHERE noCage = :old.noCage;\n  ELSIF UPDATING('NOCAGE') THEN\n    UPDATE LesCages SET nbanim = nbanim - 1 WHERE noCage = :old.noCage;\n    UPDATE LesCages SET nbanim = nbanim + 1 WHERE noCage = :new.noCage;\n  END IF;\nEND;</pre><p class=\"fiche-note\">La mise à jour RELATIVE (+1/-1) évite de tout recompter avec un COUNT(*) à chaque fois — plus efficace, et évite un recalcul complet à chaque trigger.</p><h3 class=\"fiche-h1\">Contrainte 4 — Un responsable doit être gardien d'une cage de son allée</h3><p class=\"fiche-p\">Deux triggers nécessaires, comme indiqué dans l'énoncé : un qui contrôle quand on NOMME un responsable, un autre qui contrôle quand on modifie les affectations des gardiens (pour ne pas casser la contrainte d'un responsable déjà en poste).</p><h4 class=\"fiche-h2\">4a) Trigger LIGNE sur LesResponsables</h4><pre class=\"fiche-code\">CREATE OR REPLACE TRIGGER trg_respo_est_gardien\nBEFORE INSERT OR UPDATE ON LesResponsables\nFOR EACH ROW\nDECLARE\n  nb INTEGER;\nBEGIN\n  SELECT COUNT(*) INTO nb\n  FROM LesGardiens g, LesCages c\n  WHERE g.noCage = c.noCage AND c.noAllee = :new.noAllee AND g.nomE = :new.nomE;\n  IF nb = 0 THEN\n    RAISE_APPLICATION_ERROR(-20002, 'Aisle Manager not Guardian of a cage in the aisle');\n  END IF;\nEND;</pre><h4 class=\"fiche-h2\">4b) Trigger TABLE (pas FOR EACH ROW) sur LesGardiens</h4><p class=\"fiche-p\">Pourquoi mode TABLE ici et pas mode ligne ? Parce qu'on doit vérifier la cohérence de TOUS les responsables existants après une modification des gardiens — une vérification globale, pas ligne par ligne. En mode ligne, interroger à nouveau LesGardiens poserait un problème de table mutante.</p><pre class=\"fiche-code\">CREATE OR REPLACE TRIGGER trg_gardien_respo_coherence\nAFTER DELETE OR UPDATE ON LesGardiens\nDECLARE\n  nb INTEGER;\nBEGIN\n  SELECT COUNT(*) INTO nb\n  FROM LesResponsables r\n  WHERE NOT EXISTS (\n    SELECT 1 FROM LesGardiens g, LesCages c\n    WHERE g.noCage = c.noCage AND c.noAllee = r.noAllee AND g.nomE = r.nomE\n  );\n  IF nb > 0 THEN\n    RAISE_APPLICATION_ERROR(-20002, 'Aisle Manager not Guardian of a cage in the aisle');\n  END IF;\nEND;</pre><h3 class=\"fiche-h1\">Contrainte 5 (bonus) — Animaux malades séparés des animaux sains</h3><p class=\"fiche-p\">L'énoncé prévient que plusieurs triggers quasi identiques sont nécessaires (un par événement déclencheur possible : ajout d'un animal dans une cage, ajout d'une maladie à un animal déjà en cage). Le principe : avant d'affecter/de rendre malade un animal dans une cage C, vérifier qu'aucun animal sain n'y est déjà, et inversement.</p><p class=\"fiche-note\">Exercice laissé volontairement ouvert (bonus) — le principe est identique aux triggers 2 et 3 : compter les cas incompatibles avec SELECT COUNT(*) puis RAISE_APPLICATION_ERROR si nb>0.</p>"
   },
   'cloud-intro': {
-    matiere: "Cloud",
+    matiere: "Cloud computing",
     chapitre: "Introduction - definitions et concepts",
     resume: "<div class=\"fiche-sources\"><strong>📎 PDF associés à ce chapitre :</strong><ul class=\"fiche-ul\"><li>0_presentation_cloud.pdf</li><li>1_intro_terminologie_cloud.pdf</li></ul></div><h3 class=\"fiche-h1\">1. Pourquoi ce cours ?</h3><p class=\"fiche-p\">Objectif : preparer l'entree en entreprise en maitrisant des methodes de travail et des technologies courantes, dont le Cloud Computing, un modele massivement utilise (Facebook, Netflix, Salesforce...).</p><p class=\"fiche-p\">3 axes du cours : (1) Bases du Cloud, types de services IaaS/PaaS/SaaS/FaaS, virtualisation et conteneurisation ; (2) Mise a niveau Git, outils collaboratifs, principes CI/CD ; (3) Techniques du Cloud, virtualisation/conteneurisation (VirtualBox, Docker) et applications cloud-native en microservices.</p><h3 class=\"fiche-h1\">2. Definition du Cloud Computing (NIST)</h3><p class=\"fiche-p\">Le NIST definit le Cloud Computing comme un modele permettant un acces pratique et a la demande, via le reseau, a un ensemble partage de ressources informatiques configurables (reseaux, serveurs, stockage, applications, services), pouvant etre rapidement mises a disposition et liberees avec un minimum d'effort de gestion ou d'interaction avec le fournisseur.</p><ul class=\"fiche-ul\"><li>Ensemble partage de ressources configurables : on loue une capacite de calcul d'un data-centre physique, mutualisee entre plusieurs clients.</li><li>Acces a la demande : on loue des ressources virtuelles via un outil de gestion, automatiquement, en ne payant que le temps d'utilisation.</li><li>Approvisionnement et liberation rapides : on peut liberer les ressources des qu'on n'en a plus besoin.</li></ul><h3 class=\"fiche-h1\">3. La virtualisation, concept cle</h3><p class=\"fiche-p\">Sans virtualisation, une seule application tourne par machine physique, les ressources sont sous-utilisees. Avec virtualisation, plusieurs applications partagent la meme machine physique, ce qui donne une bien meilleure utilisation des ressources. C'est ce principe qui rend le modele Cloud economiquement viable.</p><h3 class=\"fiche-h1\">4. Types d'infrastructures Cloud</h3><table class=\"fiche-table\"><thead><tr><th>Type</th><th>Caracteristiques</th></tr></thead><tbody><tr><td>Cloud prive</td><td>Utilise exclusivement par une organisation. Toujours pertinent pour des donnees sensibles.</td></tr><tr><td>Cloud public</td><td>Disponible pour quiconque veut payer, via un fournisseur. Infrastructure dite multilocataire.</td></tr><tr><td>Cloud hybride</td><td>Melange prive/public : donnees sensibles en prive, le reste en public.</td></tr><tr><td>Multi Cloud</td><td>Utiliser plusieurs fournisseurs de cloud public a la fois.</td></tr></tbody></table><p class=\"fiche-note\">Les Hyperscalers (AWS, Google Cloud, Microsoft Azure) sont les fournisseurs cloud a tres grande echelle.</p><h3 class=\"fiche-h1\">5. Les modeles de service Cloud (\"X as a Service\")</h3><p class=\"fiche-p\">Une hierarchie croissante de sous-traitance : plus on monte dans la pile, plus le fournisseur gere de choses, et moins l'utilisateur a de controle direct.</p><table class=\"fiche-table\"><thead><tr><th>Modele</th><th>Ce que loue l'utilisateur</th><th>Qui gere quoi</th><th>Exemple</th></tr></thead><tbody><tr><td>IaaS</td><td>Infrastructure virtuelle : CPU, memoire, stockage, reseau</td><td>L'utilisateur (admin systeme) gere l'OS, la securite, le serveur web, la BDD</td><td>Google Compute Engine</td></tr><tr><td>PaaS</td><td>Infrastructure + maintenance des logiciels necessaires</td><td>Le fournisseur gere infrastructure et plateforme ; l'utilisateur est developpeur</td><td>Google Cloud Run, App Engine</td></tr><tr><td>SaaS</td><td>Un logiciel complet, accessible depuis un navigateur</td><td>Le fournisseur gere tout ; l'utilisateur n'a presque aucun controle</td><td>Microsoft 365, Google Drive/Meet</td></tr><tr><td>FaaS (Serverless)</td><td>Des fonctions declenchees par des evenements</td><td>Le fournisseur gere tout, on ne paie que le temps d'execution</td><td>AWS Lambda</td></tr></tbody></table><p class=\"fiche-note\">FaaS necessite une facon specifique de developper (microservices).</p><h3 class=\"fiche-h1\">6. Un regard critique sur les technologies Cloud</h3><p class=\"fiche-p\">Le cours insiste sur la parcimonie : beaucoup de traitements analytiques reels (moins de 100 Go) tournent aussi bien sur un simple serveur que sur un cluster complexe, en performance, cout et consommation. Il faut eviter de sur-ingenierer une solution cloud quand ce n'est pas necessaire.</p><p class=\"fiche-p\">Autre point de vigilance evoque en cours : la sur-numerisation peut aussi desservir les utilisateurs (exemple : la dematerialisation de demarches administratives peut rigidifier des processus qui fonctionnaient bien avec un accueil physique).</p>",
     fiche: "<h3 class=\"fiche-h1\">Definition NIST a retenir</h3><p class=\"fiche-p\">Acces a la demande, via le reseau, a un ensemble partage de ressources configurables, rapidement approvisionnees et liberees, avec un minimum de gestion.</p><h3 class=\"fiche-h1\">3 idees de la definition</h3><ul class=\"fiche-ul\"><li>Ressources partagees/mutualisees</li><li>Acces a la demande (self-service, automatique)</li><li>Approvisionnement/liberation rapides</li></ul><h3 class=\"fiche-h1\">Virtualisation</h3><p class=\"fiche-p\">Sans virtualisation = 1 app/machine = sous-utilisation. Avec virtualisation = plusieurs apps/machine = meilleure utilisation.</p><h3 class=\"fiche-h1\">4 types d'infrastructures</h3><table class=\"fiche-table\"><thead><tr><th>Type</th><th>1 phrase</th></tr></thead><tbody><tr><td>Prive</td><td>Exclusif a une organisation (donnees sensibles).</td></tr><tr><td>Public</td><td>Ouvert a tous, multilocataire.</td></tr><tr><td>Hybride</td><td>Melange prive + public.</td></tr><tr><td>Multi Cloud</td><td>Plusieurs fournisseurs publics a la fois.</td></tr></tbody></table><h3 class=\"fiche-h1\">Les 4 modeles \"as a Service\"</h3><table class=\"fiche-table\"><thead><tr><th>Modele</th><th>Utilisateur gere</th><th>Fournisseur gere</th><th>Exemple</th></tr></thead><tbody><tr><td>IaaS</td><td>OS, securite, BDD, serveur web</td><td>Infra physique</td><td>Google Compute Engine</td></tr><tr><td>PaaS</td><td>Le code applicatif</td><td>Infra + plateforme</td><td>Cloud Run, App Engine</td></tr><tr><td>SaaS</td><td>Rien</td><td>Tout</td><td>Microsoft 365, Google Drive</td></tr><tr><td>FaaS</td><td>Le code des fonctions</td><td>Infra + plateforme + execution</td><td>AWS Lambda</td></tr></tbody></table><p class=\"fiche-note\">Ordre croissant de sous-traitance : IaaS < PaaS < FaaS/SaaS.</p><h3 class=\"fiche-h1\">A retenir cote esprit critique</h3><p class=\"fiche-p\">Ne pas sur-ingenierer : un simple serveur suffit souvent (\"You are not Google\").</p>",
     corriges: "<p class=\"fiche-p\">Les exercices sont couverts par les TP (Docker, Proxmox, CI/CD) plutot que par des annales, ils seront ajoutes en fonction des chapitres suivants.</p>"
   },
   'pc-intro': {
-    matiere: "PC (Patrons et composants)",
+    matiere: "Patrons et composants",
     chapitre: "Introduction - la reutilisation logicielle",
     resume: "<div class=\"fiche-sources\"><strong>📎 PDF associés à ce chapitre :</strong><ul class=\"fiche-ul\"><li>1introduction.pdf</li></ul></div><h3 class=\"fiche-h1\">1. Organisation du cours</h3><p class=\"fiche-p\">Le cours Patrons & Composants (P&C) combine CM, TP/TD et projet : revision UML, revision Java/tests, Design Patterns, Composants/architecture logicielle, Sonar (qualite continue), Spring reactif. Evaluation : DM (rendu hebdomadaire), CC/examen en fevrier, projet en fin de semestre.</p><h3 class=\"fiche-h1\">2. La reutilisation logicielle : le fil conducteur du cours</h3><p class=\"fiche-p\">La reutilisation est l'utilisation d'une partie d'un produit dans un autre produit, avec une fonction potentiellement differente. Elle peut porter sur le code, la documentation, les modeles ou les tests.</p><p class=\"fiche-p\">On distingue la reutilisation par intention (choisie, organisee) de la reutilisation par erreur (accidentelle, souvent risquee).</p><h3 class=\"fiche-h1\">3. Pourquoi reutiliser ? Les motivations</h3><table class=\"fiche-table\"><thead><tr><th>Aspect</th><th>Benefices recherches</th></tr></thead><tbody><tr><td>Reutilisation de l'existant</td><td>Reduction des couts de developpement/conception et de maintenance ; reduction des risques (au prix d'un risque d'integration en echange) : patrons, assemblages de composants, frameworks.</td></tr><tr><td>Developpement pour la reutilisation</td><td>Generer des revenus directs (ex : vendre des composants reutilisables).</td></tr></tbody></table><p class=\"fiche-p\">Autre benefice attendu : une conception generique qui anticipe les evolutions futures, facilite le developpement et la maintenance, permet d'etre reactif a de nouvelles exigences, et de substituer une implementation par une autre plus performante sans tout casser. Les design patterns sont des solutions cles en main pour faire evoluer un design proprement.</p><h3 class=\"fiche-h1\">4. Impact sur la qualite et le cout</h3><p class=\"fiche-p\">Principe rappele en cours : une erreur coute environ 10 fois plus cher a corriger a chaque phase suivante du developpement.</p><table class=\"fiche-table\"><thead><tr><th>Phase</th><th>Cout relatif de correction d'une erreur</th></tr></thead><tbody><tr><td>Specification / conception</td><td>1</td></tr><tr><td>Developpement</td><td>10</td></tr><tr><td>Maintenance</td><td>100</td></tr></tbody></table><p class=\"fiche-note\">D'ou l'interet d'utiliser des designs robustes, simples et deja eprouves (patterns) plutot que de tout reinventer.</p><h3 class=\"fiche-h1\">5. Les grandes familles de solutions vues dans ce cours</h3><ul class=\"fiche-ul\"><li>Les patrons (patterns) : de conception (design patterns), d'analyse (metier)...</li><li>Les composants logiciels</li><li>Les frameworks</li></ul><p class=\"fiche-p\">Ce cours propose un survol de ces techniques, detaillees chapitre par chapitre (UML, design patterns de creation/structurels/comportementaux, composants, Spring...).</p>",
     fiche: "<h3 class=\"fiche-h1\">Definition</h3><p class=\"fiche-p\">Reutilisation = utiliser une partie d'un produit (code, doc, modeles, tests) dans un autre produit, avec une fonction potentiellement differente.</p><ul class=\"fiche-ul\"><li>Par intention (organisee, voulue) vs par erreur (accidentelle).</li></ul><h3 class=\"fiche-h1\">Pourquoi reutiliser, 2 aspects</h3><ul class=\"fiche-ul\"><li>Reutiliser l'existant : baisse des couts dev/maintenance, baisse des risques (mais hausse du risque d'integration).</li><li>Developper POUR la reutilisation : generer des revenus directs (vendre des composants).</li></ul><h3 class=\"fiche-h1\">Regle des couts a connaitre par coeur</h3><table class=\"fiche-table\"><thead><tr><th>Phase</th><th>Cout</th></tr></thead><tbody><tr><td>Specification/conception</td><td>1</td></tr><tr><td>Developpement</td><td>10</td></tr><tr><td>Maintenance</td><td>100</td></tr></tbody></table><p class=\"fiche-note\">D'ou l'interet des design patterns : des solutions robustes et deja eprouvees.</p><h3 class=\"fiche-h1\">3 grandes familles d'outils du cours</h3><ul class=\"fiche-ul\"><li>Patrons (conception, analyse)</li><li>Composants logiciels</li><li>Frameworks</li></ul>",
     corriges: "<p class=\"fiche-p\">Ce chapitre est une introduction sans exercices dedies. Les exercices arriveront avec les chapitres UML et Design Patterns.</p>"
   },
   'ihm-chap1': {
-    matiere: 'IHM',
+    matiere: "Ingénierie des Interfaces Humain-Machine (IHM)",
     chapitre: 'Chapitre 1 — Principes et definitions generaux',
     resume: "<div class=\"fiche-sources\"><strong>📎 PDF associés à ce chapitre :</strong><ul class=\"fiche-ul\"><li>Chapitre 1 - Principes generaux.pdf</li></ul></div><h3 class=\"fiche-h1\">1. Bref historique des systèmes interactifs</h3><p class=\"fiche-p\">Jusque dans les années 80, l'informatique était réservée à des experts formés pour des tâches précises. Depuis, les ordinateurs se sont démocratisés (travail, loisirs, vie quotidienne) et les utilisateurs ne sont plus formés : adapter l'interaction humain-machine est devenu un travail indispensable, difficile et coûteux, sans \"recette miracle\" garantissant le succès.</p><p class=\"fiche-p\">Un ordinateur est une machine automatique de traitement de l'information, obéissant à des programmes (suite d'opérations arithmétiques et logiques), composée d'une unité de calcul et d'une unité de stockage.</p><h4 class=\"fiche-h2\">Quelques dates clés</h4><ul class=\"fiche-ul\"><li>1945 — Vannevar Bush imagine \"Memex\", un gestionnaire de documents (recherche par mots-clés, annotations).</li><li>1963 — Ivan Sutherland crée Sketchpad (icônes, zoom, désignation directe, stylo optique).</li><li>1968 — Douglas Engelbart invente la souris.</li><li>1973 — Xerox Alto : premier ordinateur personnel avec souris, écran graphique, fenêtres et menus.</li><li>1974 — premier éditeur de texte WYSIWYG (Xerox Bravo).</li><li>1981 — Xerox Star : interface à métaphore du bureau — échec commercial.</li><li>1983 — Apple Lisa reprend les mêmes principes, en moins cher.</li></ul><h3 class=\"fiche-h1\">2. Architecture des interfaces utilisateurs (modèle de Seeheim)</h3><p class=\"fiche-p\">En reprenant la définition d'un ordinateur : le \"traitement par une suite d'opérations\" correspond à la programmation (noyau fonctionnel) ; le \"traitement de l'information\" implique des entrées (paramètres fournis par l'utilisateur) et des sorties (résultats présentés). Entrées et sorties passent par des dispositifs physiques (souris, clavier, écran, imprimante...).</p><p class=\"fiche-p\">Le modèle de Seeheim sépare le système en deux grandes parties : les composants d'interaction (qui \"traduisent\" entre le langage de l'utilisateur et celui de la machine) et le noyau fonctionnel de l'application (la logique métier). Une interface utilisateur (UI) est l'ensemble des éléments logiciels et matériels assurant cette communication.</p><h3 class=\"fiche-h1\">3. Le modèle d'activité de Norman</h3><p class=\"fiche-p\">Un utilisateur a un but et agit sur le système pour l'atteindre ; le système répond, l'utilisateur évalue. Ce cycle se décompose en 6 étapes (3 pour l'action, 3 pour l'évaluation) :</p><table class=\"fiche-table\"><thead><tr><th>Phase</th><th>Étapes</th></tr></thead><tbody><tr><td>Action (utilisateur → système)</td><td>1. Formation d'une intention (cognitif) → 2. Spécification d'une suite d'actions (cognitif) → 3. Exécution des actions (moteur)</td></tr><tr><td>Évaluation (système → utilisateur)</td><td>4. Perception de l'état du système (sensoriel) → 5. Interprétation de l'état (cognitif) → 6. Évaluation par rapport au but initial (cognitif)</td></tr></tbody></table><p class=\"fiche-note\">Ce modèle sert souvent à diagnostiquer où un utilisateur \"décroche\" dans une interaction (ex : il ne perçoit pas le changement d'état, ou il ne sait pas quelle action exécuter).</p><h3 class=\"fiche-h1\">4. Les modalités d'interaction</h3><p class=\"fiche-p\">Une modalité se caractérise par un langage et un dispositif physique donnés. On distingue notamment :</p><ul class=\"fiche-ul\"><li>WIMP (Windows, Icons, Menus, Pointers) : clavier + souris + écran, interface graphique classique.</li><li>Interaction tactile : l'écran sert à la fois d'entrée et de sortie.</li><li>Interaction tangible : objets physiques manipulables comme interface.</li><li>Interaction multi-plateforme : l'interaction se poursuit d'un dispositif à l'autre.</li></ul><h3 class=\"fiche-h1\">5. Le domaine de l'IHM (et sa différence avec l'UX)</h3><p class=\"fiche-p\">L'Interaction Homme-Machine (IHM) est l'ensemble des aspects de conception, d'implémentation et d'évaluation d'un système interactif, réalisés pour qu'un humain puisse contrôler et communiquer avec une machine. Elle prend en compte le contexte, l'humain et la technique.</p><p class=\"fiche-p\">L'expérience utilisateur (UX) est proche mais distincte : l'UX désigne une expérience (quelque chose de vécu), qui peut être passive, commence AVANT l'utilisation (attentes créées par la publicité, le bouche-à-oreille...) et peut se prolonger après. L'IHM se concentre sur la période d'utilisation elle-même. Une interface contribue à l'UX sans la déterminer entièrement.</p><h3 class=\"fiche-h1\">6. Utilité vs Utilisabilité</h3><h4 class=\"fiche-h2\">6.1 L'utilité</h4><p class=\"fiche-p\">Capacité d'un dispositif à répondre aux besoins réels des utilisateurs. Certains besoins sont conscients et exprimables ; beaucoup sont inconscients — l'utilisateur propose alors une solution plutôt qu'un besoin, et il faut savoir distinguer les deux pour concevoir une interface réellement utile.</p><h4 class=\"fiche-h2\">6.2 L'utilisabilité (norme ISO 9241-11)</h4><p class=\"fiche-p\">\"Degré selon lequel un produit peut être utilisé, par des utilisateurs identifiés, pour atteindre des buts définis avec efficacité, efficience et satisfaction, dans un contexte d'utilisation spécifié.\"</p><table class=\"fiche-table\"><thead><tr><th>Critère</th><th>Définition</th></tr></thead><tbody><tr><td>Efficacité</td><td>Capacité à atteindre l'objectif donné.</td></tr><tr><td>Efficience</td><td>Capacité à réaliser la tâche avec un minimum d'efforts.</td></tr><tr><td>Satisfaction</td><td>Niveau de confort ressenti par l'utilisateur.</td></tr><tr><td>Apprenabilité*</td><td>Amélioration stable du comportement/processus qui sous-tend l'apprentissage.</td></tr><tr><td>Mémorabilité*</td><td>Consolidation en mémoire des apprentissages.</td></tr><tr><td>Fiabilité</td><td>Capacité à réaliser les tâches sans erreur (pas propre à l'IHM, s'applique à tout le système).</td></tr></tbody></table><p class=\"fiche-note\">*Apprenabilité et mémorabilité sont souvent ajoutées aux 3 critères ISO d'origine. En IHM, on retient généralement les 5 premiers (hors fiabilité).</p><p class=\"fiche-p\">Relations entre critères : un produit efficace n'est pas nécessairement efficient, ni satisfaisant. Un produit très efficient peut être difficile à apprendre. La seule relation garantie : efficient ET facile à apprendre ⇒ efficace.</p><h3 class=\"fiche-h1\">7. Principes de conception en IHM</h3><p class=\"fiche-p\">Concevoir une interface demande des compétences en informatique ET en sciences humaines — d'où des équipes pluridisciplinaires (informaticien, designer, ergonome, sociologue...). Deux piliers indispensables :</p><ul class=\"fiche-ul\"><li>L'intégration active de l'utilisateur pendant la conception (l'humain est trop complexe et changeant pour se fier uniquement à des connaissances théoriques).</li><li>L'itération à chaque étape de conception (chaque contexte de conception étant différent, il faut explorer et vérifier des hypothèses).</li></ul><p class=\"fiche-p\">Trois grandes parties prenantes : les clients (qui commandent l'interface) et les utilisateurs finaux (parfois les mêmes personnes). Trois processus de conception intégrant itération et parties prenantes sont retenus dans ce cours :</p><table class=\"fiche-table\"><thead><tr><th>Processus</th><th>Parties prenantes impliquées</th></tr></thead><tbody><tr><td>Agile</td><td>Les clients (méthode de gestion de projet plutôt que processus de conception à proprement parler).</td></tr><tr><td>Conception centrée utilisateur (UCD)</td><td>Les futurs utilisateurs + une équipe pluridisciplinaire.</td></tr><tr><td>Design thinking</td><td>Les clients, les futurs utilisateurs, une équipe hétérogène = toutes les parties prenantes.</td></tr></tbody></table>",
     fiche: "<h3 class=\"fiche-h1\">Définitions clés</h3><ul class=\"fiche-ul\"><li>IHM : conception + implémentation + évaluation d'un système interactif pour qu'un humain puisse contrôler/communiquer avec une machine.</li><li>UX ≠ IHM : l'UX commence avant l'utilisation (attentes) et peut continuer après ; l'IHM se concentre sur la période d'utilisation.</li><li>Utilité : répondre aux besoins RÉELS (souvent inconscients) des utilisateurs.</li><li>Utilisabilité (ISO 9241-11) : efficacité + efficience + satisfaction, dans un contexte donné.</li></ul><h3 class=\"fiche-h1\">Modèle de Seeheim</h3><p class=\"fiche-p\">Composants d'interaction (traduction utilisateur ↔ machine) séparés du noyau fonctionnel (logique métier).</p><h3 class=\"fiche-h1\">Modèle de Norman — 6 étapes à connaître par cœur</h3><table class=\"fiche-table\"><thead><tr><th>Étape</th><th>Type</th></tr></thead><tbody><tr><td>1. Formation d'une intention</td><td>cognitif</td></tr><tr><td>2. Spécification des actions</td><td>cognitif</td></tr><tr><td>3. Exécution</td><td>moteur</td></tr><tr><td>4. Perception de l'état</td><td>sensoriel</td></tr><tr><td>5. Interprétation</td><td>cognitif</td></tr><tr><td>6. Évaluation vs but initial</td><td>cognitif</td></tr></tbody></table><h3 class=\"fiche-h1\">Les 3 critères ISO + 2 ajoutés</h3><ul class=\"fiche-ul\"><li>Efficacité, Efficience, Satisfaction (norme ISO 9241-11)</li><li>+ Apprenabilité, Mémorabilité (souvent ajoutés)</li><li>Règle à retenir : Efficient + facile à apprendre ⇒ Efficace (seule relation garantie entre critères).</li></ul><h3 class=\"fiche-h1\">Modalités d'interaction</h3><ul class=\"fiche-ul\"><li>WIMP (clavier/souris/écran)</li><li>Tactile (entrée=sortie)</li><li>Tangible (objets physiques)</li><li>Multi-plateforme</li></ul><h3 class=\"fiche-h1\">Les 2 piliers d'une bonne conception</h3><ul class=\"fiche-ul\"><li>Intégration active de l'utilisateur pendant la conception</li><li>Itération à chaque étape</li></ul><h3 class=\"fiche-h1\">3 processus de conception</h3><table class=\"fiche-table\"><thead><tr><th>Processus</th><th>Parties prenantes</th></tr></thead><tbody><tr><td>Agile</td><td>Clients</td></tr><tr><td>UCD</td><td>Futurs utilisateurs + équipe pluridisciplinaire</td></tr><tr><td>Design thinking</td><td>Clients + utilisateurs + équipe hétérogène</td></tr></tbody></table>",
@@ -480,6 +508,15 @@ function mondayOf(dateObj){
 function fmtDateFR(d){
   return d.toLocaleDateString("fr-FR", { day:"2-digit", month:"2-digit" });
 }
+// Remonte l'élément du jour en tête de liste, en conservant l'ordre habituel pour le reste.
+function reorderTodayFirst(items, dateOf){
+  const today = todayStr();
+  const idxToday = items.findIndex(it => dateOf(it) === today);
+  if(idxToday <= 0) return items;
+  const todayItem = items[idxToday];
+  const rest = items.filter((_,i)=>i!==idxToday);
+  return [todayItem, ...rest];
+}
 
 const IMPORTS = {
   cours:      { version: "v2-alternant-g2",      prefix: "ade",   seed: () => INITIAL_COURS },
@@ -517,6 +554,12 @@ async function loadAll(){
     }
   }
 
+  // Chargement du suivi de progression des fiches (indépendant du système d'import)
+  try{
+    const fp = await window.storage.get("planner:ficheProgress");
+    FICHE_PROGRESS = fp ? JSON.parse(fp.value) : {};
+  }catch(e){ FICHE_PROGRESS = {}; }
+
   loaded = true;
   render();
 }
@@ -552,6 +595,7 @@ function render(){
   if(current==="sport") return renderSport(page);
   if(current==="fiches") return renderFiches(page);
   if(current==="sources") return renderSources(page);
+  if(current==="progression") return renderProgression(page);
 }
 
 function escapeHtml(s){ return (s||"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
@@ -705,15 +749,16 @@ function renderCoursList(){
   document.getElementById("week-label").textContent = `${fmtDateFR(monday)} – ${fmtDateFR(sunday)}`;
 
   const today = todayStr();
+  const days2 = days.map((d, idx) => ({ d, idx, dStr: toLocalISO(d) }));
+  const ordered = reorderTodayFirst(days2, it => it.dStr);
   let html = "";
   let any = false;
-  days.forEach((d, idx)=>{
-    const dStr = toLocalISO(d);
+  ordered.forEach(({d, idx, dStr})=>{
     const dayCourses = DATA.cours.filter(c=>c.date===dStr).sort((a,b)=>(a.heureDebut||"").localeCompare(b.heureDebut||""));
     if(dayCourses.length===0) return;
     any = true;
     const isToday = dStr===today;
-    html += `<div class="day-block"><div class="day-heading ${isToday? "today-mark":""}">${JOURS_LONG[idx]} ${fmtDateFR(d)}${isToday? " · aujourd'hui":""}</div>`;
+    html += `<div class="day-block ${isToday? "today-highlight":""}" style="${isToday? "border-radius:12px; padding:12px;":""}"><div class="day-heading ${isToday? "today-mark":""}">${JOURS_LONG[idx]} ${fmtDateFR(d)}${isToday? " · aujourd'hui":""}</div>`;
     dayCourses.forEach(c=> html += courseCardHtml(c));
     html += `</div>`;
   });
@@ -803,15 +848,27 @@ function buildDayPlan(dateObj){
   const jourLong = JOURS_LONG[jourIdx];
   const courses = coursesOfDay(dateStr);
   const subjects = [...new Set(courses.map(c=>c.matiere))];
+
+  const tomorrowObj = new Date(dateObj); tomorrowObj.setDate(tomorrowObj.getDate()+1);
+  const tomorrowStr = toLocalISO(tomorrowObj);
+  const tomorrowCourses = coursesOfDay(tomorrowStr);
+  const tomorrowSubjects = [...new Set(tomorrowCourses.map(c=>c.matiere))];
+
   const sport = sportOfDay(jourAbbrev);
   const lastEnd = courses.length ? courses[courses.length-1].heureFin : null;
   const blocks = [];
 
-  // Dimanche : bilan de la semaine, pas de logique "après les cours"
+  // Dimanche : bilan de la semaine + préparation de la semaine qui arrive (lundi)
   if(jourLong === "dimanche"){
-    blocks.push({heure:"17h00 – 18h30", titre:"Bilan de la semaine", detail:"Repasser rapidement toutes les matières vues (relecture des fiches, pas de nouvelle matière).", type:"test"});
+    const lundiSubject = tomorrowSubjects[0] || fallbackSubject(tomorrowObj);
+    blocks.push({heure:"17h00 – 18h00", titre:"Bilan de la semaine", detail:"Repasser rapidement toutes les matières vues (relecture des fiches, pas de nouvelle matière).", type:"test"});
+    blocks.push({heure:"18h00 – 18h30", titre:`Préparer ${lundiSubject} (lundi)`, detail:"Parcourir le prochain cours pour ne pas arriver à froid lundi matin.", type:"revoir", matiere:lundiSubject});
     return blocks;
   }
+
+  const today0 = subjects[0] || fallbackSubject(dateObj);
+  const tomorrow0 = tomorrowSubjects[0] || fallbackSubject(tomorrowObj);
+  const tomorrow1 = tomorrowSubjects[1] || tomorrow0;
 
   if(sport){
     const sportStart = sport.heure || "18:30";
@@ -826,12 +883,10 @@ function buildDayPlan(dateObj){
     blocks.push({heure:`${t} – ${t2}`, titre:"Cuisiner & dîner", type:"repos"});
 
     const revStart = t2;
-    const s0 = subjects[0] || fallbackSubject(dateObj);
-    const s1 = subjects[1] || s0;
     let r1 = addMinutes(revStart, 45);
-    blocks.push({heure:`${revStart} – ${r1}`, titre:`Revoir ${s0}`, detail:"Relecture du cours + fiche de synthèse, puis reformulation à voix haute.", type:"revoir", matiere:s0});
+    blocks.push({heure:`${revStart} – ${r1}`, titre:`Relire ${today0} (vu aujourd'hui)`, detail:"Relecture rapide du cours du jour + fiche de synthèse.", type:"revoir", matiere:today0});
     let r2 = addMinutes(r1, 45);
-    blocks.push({heure:`${r1} – ${r2}`, titre: subjects.length>1 ? `Exercices ${s1}` : `Exercices ${s0}`, detail:"Exercices ou TD sans le corrigé.", type:"exercices", matiere: subjects.length>1 ? s1 : s0});
+    blocks.push({heure:`${r1} – ${r2}`, titre:`Préparer ${tomorrow0} (demain)`, detail:"Parcourir à l'avance le cours de demain pour ne pas arriver à froid.", type:"exercices", matiere:tomorrow0});
     blocks.push({heure:"", titre:"Séance de révision raccourcie (1h30) pour respecter ton repos après le sport", type:"note"});
     return blocks;
   }
@@ -843,14 +898,11 @@ function buildDayPlan(dateObj){
   const lateStart = parseInt(revStart.split(":")[0],10) >= 21;
   const nbSlots = lateStart ? 2 : 4;
 
-  const s0 = subjects[0] || fallbackSubject(dateObj);
-  const s1 = subjects[1] || s0;
-  const s2 = subjects[2] || s1;
   const fullSeq = [
-    {titre:`Revoir ${s0}`, detail:"Relecture active du cours du jour + fiche de synthèse.", type:"revoir", matiere:s0},
-    {titre:`Exercices ${s0}`, detail:"TD/exercices sans le corrigé.", type:"exercices", matiere:s0},
-    {titre: subjects.length>1 ? `Revoir ${s1}` : `Exercices ${s0} (approfondissement)`, detail: subjects.length>1 ? "Relecture + fiche de synthèse." : "Exercices plus avancés ou anciens sujets.", type:"revoir", matiere: subjects.length>1 ? s1 : s0},
-    {titre:"Auto-test + bilan de la journée", detail:"Quiz ou questions sans support pour repérer ce qui reste flou.", type:"test", matiere: subjects.length>2 ? s2 : (subjects.length>1 ? s1 : s0)}
+    {titre:`Relire ${today0} (vu aujourd'hui)`, detail:"Relecture active du cours du jour, à chaud, + fiche de synthèse.", type:"revoir", matiere:today0},
+    {titre: subjects.length>1 ? `Relire ${subjects[1]} (vu aujourd'hui)` : `Exercices ${today0}`, detail: subjects.length>1 ? "Relecture active de la 2e matière vue aujourd'hui." : "TD/exercices sans le corrigé, sur le cours du jour.", type:"exercices", matiere: subjects.length>1 ? subjects[1] : today0},
+    {titre:`Préparer ${tomorrow0} (demain)`, detail:"Parcourir le cours de demain à l'avance : repérer la structure et les notions clés pour suivre plus facilement en classe.", type:"revoir", matiere:tomorrow0},
+    {titre: tomorrowSubjects.length>1 ? `Préparer ${tomorrow1} (demain)` : "Auto-test + bilan de la journée", detail: tomorrowSubjects.length>1 ? "Parcourir la 2e matière du lendemain." : "Quiz ou questions sans support pour repérer ce qui reste flou.", type:"test", matiere: tomorrowSubjects.length>1 ? tomorrow1 : tomorrow0}
   ];
   const seq = fullSeq.slice(0, nbSlots);
   let t = revStart;
@@ -912,7 +964,9 @@ const FICHE_BY_MATIERE = {
   "Bases de données avancées": ["bda-transactions", "bda-triggers", "bda-bdro", "bda-optim", "bda-nosql"],
   "Ingénierie des Interfaces Humain-Machine (IHM)": ["ihm-chap1", "ihm-chap2", "ihm-chap4", "ihm-chap5", "ihm-chap6", "ihm-chap7"],
   "Cloud computing": ["cloud-intro", "cloud-git", "cloud-virt", "cloud-cicd"],
-  "Patrons et composants": ["pc-intro", "pc-uml", "pc-java", "pc-test", "pc-sonar", "pc-dp-intro", "pc-dp-creation", "pc-dp-structurel", "pc-dp-comportement", "pc-antipattern", "pc-reactivite", "pc-spring", "pc-jpa"]
+  "Patrons et composants": ["pc-intro", "pc-uml", "pc-java", "pc-test", "pc-sonar", "pc-dp-intro", "pc-dp-creation", "pc-dp-structurel", "pc-dp-comportement", "pc-antipattern", "pc-reactivite", "pc-spring", "pc-jpa", "pc-kotlin"],
+  "GL (Génie Logiciel)": [],
+  "Analyse fontionnelle pour la modélisation de processus": []
 };
 let fichesFilterMatiere = null;
 function fichesForMatiere(matiere){
@@ -952,11 +1006,13 @@ function renderRevWeekPlan(){
   document.getElementById("rev-week-label").textContent = `${fmtDateFR(monday)} – ${fmtDateFR(sunday)}`;
 
   let html = "";
-  for(let i=0;i<7;i++){
-    const d = new Date(monday); d.setDate(d.getDate()+i);
+  const days2 = [];
+  for(let i=0;i<7;i++){ const d = new Date(monday); d.setDate(d.getDate()+i); days2.push({d, idx:i}); }
+  const ordered = reorderTodayFirst(days2, it => toLocalISO(it.d));
+  ordered.forEach(({d, idx:i})=>{
     const blocks = buildDayPlan(d);
     const isToday = toLocalISO(d) === todayStr();
-    html += `<div class="day-block"><div class="day-heading ${isToday?"today-mark":""}">${JOURS_LONG[i]} ${fmtDateFR(d)}${isToday? " · aujourd'hui":""}</div>`;
+    html += `<div class="day-block ${isToday? "today-highlight":""}" style="${isToday? "border-radius:12px; padding:12px;":""}"><div class="day-heading ${isToday?"today-mark":""}">${JOURS_LONG[i]} ${fmtDateFR(d)}${isToday? " · aujourd'hui":""}</div>`;
     blocks.forEach(b=>{
       if(b.type==="note"){
         html += `<div class="item-meta" style="margin:2px 4px 8px; font-style:italic;">${escapeHtml(b.titre)}</div>`;
@@ -975,7 +1031,7 @@ function renderRevWeekPlan(){
       </div>`;
     });
     html += `</div>`;
-  }
+  });
   document.getElementById("rev-week-content").innerHTML = html;
 }
 async function addRevision(){
@@ -1009,9 +1065,12 @@ function renderAlternance(page){
   const list = document.getElementById("list-alternance");
   const sorted = [...DATA.alternance].sort((a,b)=> (a.date||"").localeCompare(b.date||""));
   if(sorted.length===0){ list.innerHTML = '<div class="empty">Rien à afficher — ajoute ton rythme ou tes tâches.</div>'; return; }
-  list.innerHTML = sorted.map(i=>{
+  const mondayStr = toLocalISO(mondayOf(new Date()));
+  const idxCurrent = sorted.findIndex(i=>i.date===mondayStr);
+  const ordered = idxCurrent>0 ? [sorted[idxCurrent], ...sorted.filter((_,i)=>i!==idxCurrent)] : sorted;
+  list.innerHTML = ordered.map(i=>{
     const meta = `${i.type}${i.date? " · "+i.date:""}`;
-    return itemHtml(i,"alternance", meta, i.titre || i.type);
+    return itemHtml(i,"alternance", meta, i.titre || i.type, null, i.date===mondayStr);
   }).join("");
 }
 async function addAlternance(){
@@ -1080,13 +1139,17 @@ function renderSport(page){
   const list = document.getElementById("list-sport");
   const sorted = [...DATA.sport].sort((a,b)=> JOURS.indexOf(a.jour)-JOURS.indexOf(b.jour) || (a.heure||"").localeCompare(b.heure||""));
   if(sorted.length===0){ list.innerHTML = '<div class="empty">Aucune séance programmée.</div>'; return; }
-  list.innerHTML = sorted.map(i=>{
+  const todayAbbrev = JOURS[(new Date().getDay()+6)%7];
+  const idxToday = sorted.findIndex(i=>i.jour===todayAbbrev);
+  const ordered = idxToday>0 ? [sorted[idxToday], ...sorted.filter((_,i)=>i!==idxToday)] : sorted;
+  list.innerHTML = ordered.map(i=>{
     const detail = SPORT_DETAIL[i.id];
     const extra = detail ? `<div class="course-meta" style="margin-top:6px;">${detail.exos.map(escapeHtml).join("<br>")}</div>` : "";
-    return `<div class="item ${i.done?"done":""}" style="align-items:flex-start;">
+    const isToday = i.jour===todayAbbrev;
+    return `<div class="item ${i.done?"done":""} ${isToday?"today-highlight":""}" style="align-items:flex-start;">
       <button class="check" onclick="toggleItem('sport','${i.id}')" style="margin-top:2px;">${i.done? "✓":""}</button>
       <div class="item-body">
-        <div class="item-title">${escapeHtml(i.jour)}${i.heure? " · "+escapeHtml(i.heure):""} — ${escapeHtml(i.activite)}</div>
+        <div class="item-title">${escapeHtml(i.jour)}${i.heure? " · "+escapeHtml(i.heure):""} — ${escapeHtml(i.activite)}${isToday? " <span style=\"color:var(--sport); font-weight:600;\">· aujourd'hui</span>":""}</div>
         ${extra}
       </div>
       <button class="del" onclick="deleteItem('sport','${i.id}')" aria-label="Supprimer">✕</button>
@@ -1107,6 +1170,21 @@ async function addSport(){
 /* ---------- FICHES DE COURS ---------- */
 let currentFicheId = null;
 let currentFicheTab = "resume";
+let FICHE_PROGRESS = {};
+
+async function toggleFicheDone(ficheKey){
+  const current = FICHE_PROGRESS[ficheKey];
+  if(current && current.done){
+    delete FICHE_PROGRESS[ficheKey];
+  } else {
+    FICHE_PROGRESS[ficheKey] = { done: true, date: todayStr() };
+  }
+  try{ await window.storage.set("planner:ficheProgress", JSON.stringify(FICHE_PROGRESS)); }catch(e){}
+  render();
+}
+function isFicheDone(ficheKey){
+  return !!(FICHE_PROGRESS[ficheKey] && FICHE_PROGRESS[ficheKey].done);
+}
 
 function renderFiches(page){
   if(currentFicheId && FICHES[currentFicheId]){
@@ -1130,12 +1208,14 @@ function renderFiches(page){
   }
   list.innerHTML = keys.map(k=>{
     const f = FICHES[k];
-    return `<div class="fiche-card" onclick="openFiche('${k}')">
-      <div>
-        <div class="fc-title">${escapeHtml(f.matiere)} — ${escapeHtml(f.chapitre)}</div>
+    const done = isFicheDone(k);
+    return `<div class="fiche-card" style="${done? 'opacity:0.6;':''}">
+      <button class="fiche-check ${done?'done':''}" onclick="event.stopPropagation(); toggleFicheDone('${k}')" title="Marquer comme révisé">${done? '✓':''}</button>
+      <div style="flex:1; cursor:pointer;" onclick="openFiche('${k}')">
+        <div class="fc-title" style="${done?'text-decoration:line-through;':''}">${escapeHtml(f.matiere)} — ${escapeHtml(f.chapitre)}</div>
         <div class="fc-sub">Résumé détaillé · Fiche de révision · Exercices corrigés</div>
       </div>
-      <div style="color:#6B4E9E; font-size:20px;">→</div>
+      <div style="color:#6B4E9E; font-size:20px; cursor:pointer;" onclick="openFiche('${k}')">→</div>
     </div>`;
   }).join("");
 }
@@ -1158,6 +1238,7 @@ function switchFicheTab(tab){
 
 function renderFicheDetail(page, key){
   const f = FICHES[key];
+  const done = isFicheDone(key);
   const tabs = [
     {id:"resume", label:"Résumé détaillé"},
     {id:"fiche", label:"Fiche de révision"},
@@ -1167,8 +1248,13 @@ function renderFicheDetail(page, key){
     <div style="margin-bottom:10px;">
       <button class="today-btn week-nav-btn" onclick="backToFichesList()" style="border:1px solid var(--line); background:var(--paper); border-radius:8px; padding:6px 12px; cursor:pointer; font-size:13px;">← Toutes les fiches</button>
     </div>
-    <h1 style="color:#6B4E9E">${escapeHtml(f.matiere)}</h1>
-    <p class="subtitle">${escapeHtml(f.chapitre)}</p>
+    <div style="display:flex; align-items:flex-start; gap:14px;">
+      <button class="fiche-check ${done?'done':''}" style="margin-top:6px;" onclick="toggleFicheDone('${key}')" title="Marquer comme révisé">${done? '✓':''}</button>
+      <div>
+        <h1 style="color:#6B4E9E; margin-bottom:2px;">${escapeHtml(f.matiere)}</h1>
+        <p class="subtitle">${escapeHtml(f.chapitre)}${done? ` · révisé le ${escapeHtml(FICHE_PROGRESS[key].date)}` : ""}</p>
+      </div>
+    </div>
     <div class="fiche-tabs">
       ${tabs.map(t=>`<button class="fiche-tab-btn ${currentFicheTab===t.id?"active":""}" onclick="switchFicheTab('${t.id}')">${t.label}</button>`).join("")}
     </div>
@@ -1177,16 +1263,101 @@ function renderFicheDetail(page, key){
 }
 
 
+/* ---------- PROGRESSION (suivi global + par jour) ---------- */
+function renderProgression(page){
+  const matieres = Object.keys(FICHE_BY_MATIERE);
+  let totalFiches = 0, totalDone = 0;
+  const perMatiere = matieres.map(m=>{
+    const keys = FICHE_BY_MATIERE[m];
+    const doneCount = keys.filter(k=>isFicheDone(k)).length;
+    totalFiches += keys.length;
+    totalDone += doneCount;
+    return { matiere:m, keys, doneCount, total: keys.length };
+  });
+  const globalPct = totalFiches>0 ? Math.round((totalDone/totalFiches)*100) : 0;
+
+  let html = `<h1 style="color:#3D6B4F">Progression</h1>
+    <p class="subtitle">Suivi de tes fiches de cours révisées, par matière et par jour</p>
+    <div class="progress-global">
+      <div class="pg-pct">${globalPct}%</div>
+      <div class="pg-label">${totalDone} / ${totalFiches} fiches révisées au total</div>
+    </div>
+    <div class="section-label">Par matière</div>`;
+
+  perMatiere.forEach(pm=>{
+    const pct = pm.total>0 ? Math.round((pm.doneCount/pm.total)*100) : 0;
+    html += `<div class="progress-row">
+      <div class="pr-label">${escapeHtml(pm.matiere)}</div>
+      <div class="progress-bar-track"><div class="progress-bar-fill" style="width:${pct}%;"></div></div>
+      <div class="pr-pct">${pm.total>0? pct+"%" : "—"}</div>
+    </div>`;
+    if(pm.total>0){
+      html += `<div class="list" style="margin:-6px 0 18px;">`;
+      pm.keys.forEach(k=>{
+        const f = FICHES[k];
+        const done = isFicheDone(k);
+        html += `<div class="agenda-item clickable" onclick="openFicheDirect('${k}')">
+          <span class="tag" style="${done?'background:#DEEAE1; color:#3D6B4F;':'background:#EFEAE0; color:#8A8578;'}">${done? '✓ Révisé' : 'À faire'}</span>
+          <span class="txt">${escapeHtml(f.chapitre)}</span>
+          <span class="meta">${done? escapeHtml(FICHE_PROGRESS[k].date) : ""}</span>
+        </div>`;
+      });
+      html += `</div>`;
+    } else {
+      html += `<div class="empty" style="margin:-6px 0 18px;">Aucune fiche pour l'instant — envoie les cours de cette matière quand tu veux.</div>`;
+    }
+  });
+
+  // Historique par jour
+  const byDate = {};
+  Object.keys(FICHE_PROGRESS).forEach(k=>{
+    const entry = FICHE_PROGRESS[k];
+    if(!entry || !entry.done) return;
+    const d = entry.date || "?";
+    if(!byDate[d]) byDate[d] = [];
+    const f = FICHES[k];
+    if(f) byDate[d].push(`${f.matiere} — ${f.chapitre}`);
+  });
+  const dates = Object.keys(byDate).sort().reverse();
+
+  html += `<div class="section-label">Historique par jour</div>`;
+  if(dates.length===0){
+    html += `<div class="empty">Aucune fiche marquée comme révisée pour le moment.</div>`;
+  } else {
+    dates.forEach(d=>{
+      const dateObj = new Date(d+"T12:00:00");
+      const label = dateObj.toLocaleDateString("fr-FR", {weekday:"long", day:"numeric", month:"long"});
+      html += `<div class="progress-day-group">
+        <div class="progress-day-heading">${label.charAt(0).toUpperCase()+label.slice(1)} — ${byDate[d].length} fiche(s)</div>
+        <div class="list">`;
+      byDate[d].forEach(txt=>{
+        html += `<div class="agenda-item"><span class="tag" style="background:#DEEAE1; color:#3D6B4F;">✓</span><span class="txt">${escapeHtml(txt)}</span><span class="meta"></span></div>`;
+      });
+      html += `</div></div>`;
+    });
+  }
+
+  page.innerHTML = html;
+}
+function openFicheDirect(key){
+  currentFicheId = key;
+  currentFicheTab = "resume";
+  switchTab("fiches");
+}
+
 /* ---------- FICHIERS DE COURS (catalogue brut) ---------- */
 const MATIERE_LABEL = {
   "BDA": "Bases de données avancées",
   "IHM": "Ingénierie des Interfaces Humain-Machine (IHM)",
   "Cloud": "Cloud computing",
-  "PC": "Patrons et composants"
+  "PC": "Patrons et composants",
+  "GL": "GL (Génie Logiciel)",
+  "AFMP": "Analyse fontionnelle pour la modélisation de processus"
 };
 
 // Association fichier source -> fiche déjà rédigée (uniquement les fichiers traités jusqu'ici)
 const FILE_TO_FICHE = {
+  "kotlin.pdf": "pc-kotlin",
   "Cours-fondamentaux-Spring.pdf": "pc-spring",
   "Cours-JPA.pdf": "pc-jpa",
   "Spring-Test.pdf": "pc-spring",
@@ -1266,12 +1437,12 @@ function renderSources(page){
 }
 
 
-function itemHtml(item, cat, meta, title, extra){
+function itemHtml(item, cat, meta, title, extra, highlight){
   const openFn = cat==="revisions" ? "openRevisionDetail" : cat==="alternance" ? "openAlternanceDetail" : "openSportDetail";
-  return `<div class="item clickable ${item.done?"done":""}" onclick="${openFn}('${item.id}')">
+  return `<div class="item clickable ${item.done?"done":""} ${highlight?"today-highlight":""}" onclick="${openFn}('${item.id}')">
     <button class="check" onclick="event.stopPropagation(); toggleItem('${cat}','${item.id}')">${item.done? "✓":""}</button>
     <div class="item-body">
-      <div class="item-title">${escapeHtml(title||"(sans titre)")}</div>
+      <div class="item-title">${escapeHtml(title||"(sans titre)")}${highlight? ' <span style="color:var(--alternance); font-weight:600;">· cette semaine</span>':''}</div>
       <div class="item-meta">${escapeHtml(meta||"")}</div>
     </div>
     ${extra||""}
